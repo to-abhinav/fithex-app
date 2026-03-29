@@ -108,7 +108,7 @@ const LoginScreen = ({navigation}) => {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Need an account?</Text>
-            <Text style={styles.footerLink}> Register now</Text>
+            <Text style={styles.footerLink} onPress={() => navigation.navigate("Register")}> Register now</Text>
           </View>
         </View>
       </TouchableWithoutFeedback>
