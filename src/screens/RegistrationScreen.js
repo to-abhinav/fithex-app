@@ -14,6 +14,8 @@ import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 
+const REGISTER_URL = `${process.env.EXPO_PUBLIC_API_URL}/users/register`;
+
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -21,6 +23,7 @@ const RegisterScreen = ({ navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
   const [agreed, setAgreed] = useState(false);
+  const API_URL = "http://192.168.1.4:5000";
 
   const getPasswordStrength = () => {
     if (password.length === 0) return { bars: 0, label: "", color: "" };
@@ -51,14 +54,12 @@ const RegisterScreen = ({ navigation }) => {
   }
 
   try {
-    const response = await axios.post("http://192.168.1.4:5000/users/register", {
+    const response = await axios.post(REGISTER_URL, {
       name,
       email,
       password,
     });
 
-    // save token if you're using JWT
-    // await AsyncStorage.setItem("token", response.data.token);
 
     Alert.alert("Success", "Account created successfully!");
 

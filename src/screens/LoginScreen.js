@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+
 import {
   View,
   Text,
@@ -12,9 +13,9 @@ import {
   Keyboard,
   ActivityIndicator,
 } from "react-native";
+import * as SecureStore from "expo-secure-store";
 
-const API_URL = "http://192.168.1.4:5000/auth/login"; // Use your machine's local IP (e.g. http://192.168.x.x:5000) when testing on a physical device
-
+const LOGIN_URL = `${process.env.EXPO_PUBLIC_API_URL}/auth/login`;
 const LoginScreen = ({navigation}) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +30,7 @@ const LoginScreen = ({navigation}) => {
     setLoading(true);
 
     try {
-      const response = await fetch(API_URL, {
+      const response = await fetch(LOGIN_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -40,21 +41,25 @@ const LoginScreen = ({navigation}) => {
       const data = await response.json();
 
       if (!response.ok) {
-        // Server returned 4xx / 5xx — show the error message from API
         Alert.alert("Login Failed", data.message || "Invalid credentials.");
         return;
       }
 
-      // ✅ Success — store token here (e.g. AsyncStorage) and navigate
-      navigation.replace("Profile");
-      console.log("Token:", data.token);
+      if (!data.token) {
+        Alert.alert("Error", "No token received from server");
+        console.error("Response data:", data);
+        return;
+      }
 
+      await SecureStore.setItemAsync("token", data.token);
+      console.log("Login successful. Token stored");
+
+      navigation.replace("Profile");
       setEmail("");
       setPassword("");
     } catch (error) {
-      // Network error or JSON parse failure
-      console.error("Login error:", error);
-      Alert.alert("Error", "Could not connect to server. Check your network.");
+      console.error("Login error:", error.message);
+      Alert.alert("Error", error.message || "Could not connect to server. Check your network.");
     } finally {
       setLoading(false);
     }
