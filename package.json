@@ -22,6 +22,8 @@
     "prettier-plugin-tailwindcss": "^0.5.14",
     "react": "19.2.0",
     "react-native": "0.83.2",
+    "react-native-dotenv": "^3.4.11",
+    "react-native-razorpay": "^2.3.1",
     "react-native-reanimated": "^3.16.7",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",

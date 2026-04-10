@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigation } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -12,6 +13,7 @@ import axios from "axios";
 import * as SecureStore from "expo-secure-store";
 
 const ProfileScreen = () => {
+  const navigation = useNavigation();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const API_URL = process.env.API_URL;
@@ -155,6 +157,20 @@ const ProfileScreen = () => {
             className="rounded-2xl py-4 items-center"
           >
             <Text className="text-sm font-bold text-white">Start Workout</Text>
+          </LinearGradient>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() =>navigation.navigate("Payment", { plan, gym, user })}
+          className="flex-1"
+        >
+          <LinearGradient
+            colors={["#10b981", "#059669"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            className="rounded-2xl py-4 items-center"
+          >
+            <Text className="text-sm font-bold text-white">Payment</Text>
           </LinearGradient>
         </TouchableOpacity>
 
