@@ -8,7 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import RazorpayCheckout from "react-native-razorpay";
-import api from "../api/axios";
+import api from "../../api/axios";
 
 export default function PaymentScreen({ route, navigation }) {
   const { plan, gym, user } = route.params;
