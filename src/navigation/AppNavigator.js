@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegistrationScreen";
+import OtpVerificationScreen from "../screens/auth/OtpVerificationScreen";
 import GymInfoScreen from "../screens/dashboard/GymInfoScreen";
 import GymPlansScreen from "../screens/dashboard/GymPlansScreen";
 import PaymentScreen from "../screens/payment/PaymentScreen";
@@ -12,12 +13,13 @@ const Stack = createNativeStackNavigator();
 const AppNavigator = () => {
   return (
     <Stack.Navigator
-      initialRouteName="Main"
+      initialRouteName="Login"
       screenOptions={{ headerShown: false }}
     >
       {/* Auth */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Registration" component={RegisterScreen} />
+      <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
 
       {/* Main app with bottom nav */}
       <Stack.Screen name="Main" component={MainTabNavigator} />

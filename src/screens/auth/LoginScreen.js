@@ -151,7 +151,7 @@ const LoginScreen = ({ navigation }) => {
       await SecureStore.setItemAsync("token", data.token);
       console.log("Login successful. Token stored");
 
-      navigation.replace("Profile");
+      navigation.replace("Main");
       setEmail("");
       setPassword("");
     } catch (error) {

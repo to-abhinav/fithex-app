@@ -26,10 +26,9 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
-import axios from "axios";
+import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const REGISTER_URL = `${process.env.EXPO_PUBLIC_API_URL}/users/register`;
 
 // ─── Animated Glow Orb ────────────────────────────────────────────────────────
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
@@ -132,7 +131,7 @@ const RegisterScreen = ({ navigation }) => {
   };
   const strength = getPasswordStrength();
 
-  // ── Register Handler ──────────────────────────────────────────────────
+  // ── Register Handler — sends OTP then navigates to verification ──────
   const handleRegister = async () => {
     if (!name || !email || !password) {
       Alert.alert("Error", "Please fill in all fields");
@@ -145,13 +144,14 @@ const RegisterScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      await axios.post(REGISTER_URL, { name, email, password });
-      Alert.alert("Success", "Account created successfully!");
-      navigation.navigate("Login");
+      // Step 1: send OTP to email
+      await api.post("/users/send-otp", { email });
+      // Step 2: navigate to OTP screen, passing registration data
+      navigation.navigate("OtpVerification", { name, email, password });
     } catch (error) {
       Alert.alert(
         "Error",
-        error.response?.data?.message || "Registration failed"
+        error.response?.data?.message || "Failed to send OTP. Please try again."
       );
     } finally {
       setLoading(false);
@@ -478,7 +478,7 @@ const RegisterScreen = ({ navigation }) => {
                         ) : (
                           <>
                             <Text className="text-[15px] font-bold text-black tracking-wide">
-                              Create Account
+                              Verify Email
                             </Text>
                             <Ionicons
                               name="arrow-forward"
