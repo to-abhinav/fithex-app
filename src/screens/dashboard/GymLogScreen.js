@@ -323,8 +323,9 @@ const StreakGrid = ({ data }) => {
   const CELL = 12;
   const GAP = 3;
   const WEEKS = 52;
-  const DAYS_PER_WEEK = 7;
-  const gridW = SCREEN_WIDTH - 48;
+  const COL_W = CELL + GAP; // 15px per week column
+  const DAY_LABEL_W = 28; // width reserved for day labels (Mon, Wed, Fri)
+  const MIN_LABEL_GAP_WEEKS = 3; // skip month labels closer than 3 weeks
 
   const weeks = [];
   for (let w = 0; w < WEEKS; w++) {
@@ -332,51 +333,94 @@ const StreakGrid = ({ data }) => {
   }
 
   const dayLabels = ["", "Mon", "", "Wed", "", "Fri", ""];
+
   const monthLabels = [];
   let lastMonth = "";
+  let lastLabelWeek = -Infinity;
   weeks.forEach((week, wi) => {
     const firstDay = week.find((d) => d);
     if (firstDay) {
       const month = new Date(firstDay.date).toLocaleString("en-US", { month: "short" });
       if (month !== lastMonth) {
-        monthLabels.push({ week: wi, label: month });
+        // Only add if far enough from the previous label
+        if (wi - lastLabelWeek >= MIN_LABEL_GAP_WEEKS) {
+          monthLabels.push({ week: wi, label: month });
+          lastLabelWeek = wi;
+        }
         lastMonth = month;
       }
     }
   });
 
+  const monthScrollRef = useRef(null);
+  const gridScrollRef = useRef(null);
+
+  const handleGridScroll = useCallback((e) => {
+    const x = e.nativeEvent.contentOffset.x;
+    monthScrollRef.current?.scrollTo({ x, animated: false });
+  }, []);
+
+  const totalGridW = WEEKS * COL_W;
+
   return (
     <View>
-      {/* Month labels */}
-      <View style={{ flexDirection: "row", marginLeft: 22, marginBottom: 4, position: "relative" }}>
-        {monthLabels.map(({ week, label }) => (
-          <Text
-            key={week}
-            style={{
-              position: "absolute",
-              left: week * (CELL + GAP),
-              fontSize: 9,
-              color: "rgba(255,255,255,0.35)",
-              fontWeight: "600",
-            }}
-          >
-            {label}
-          </Text>
-        ))}
+      <View style={{ flexDirection: "row" }}>
+        {/* Spacer matching day-label column */}
+        <View style={{ width: DAY_LABEL_W }} />
+
+        {/* Month labels — synced horizontal scroll */}
+        <ScrollView
+          ref={monthScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          scrollEnabled={false}
+          pointerEvents="none"
+        >
+          <View style={{ width: totalGridW, height: 16, position: "relative" }}>
+            {monthLabels.map(({ week, label }) => (
+              <Text
+                key={`${week}-${label}`}
+                style={{
+                  position: "absolute",
+                  left: week * COL_W,
+                  top: 0,
+                  fontSize: 9,
+                  color: "rgba(255,255,255,0.45)",
+                  fontWeight: "600",
+                }}
+              >
+                {label}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
       </View>
 
-      <View style={{ flexDirection: "row", gap: GAP }}>
+      <View style={{ flexDirection: "row" }}>
         {/* Day labels */}
-        <View style={{ justifyContent: "space-around", marginTop: 0 }}>
+        <View style={{ width: DAY_LABEL_W, justifyContent: "space-around" }}>
           {dayLabels.map((d, i) => (
-            <Text key={i} style={{ fontSize: 8, color: "rgba(255,255,255,0.25)", height: CELL + GAP, lineHeight: CELL + GAP }}>
+            <Text
+              key={i}
+              style={{
+                fontSize: 8,
+                color: "rgba(255,255,255,0.25)",
+                height: CELL + GAP,
+                lineHeight: CELL + GAP,
+              }}
+            >
               {d}
             </Text>
           ))}
         </View>
 
-        {/* Grid */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <ScrollView
+          ref={gridScrollRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleGridScroll}
+          scrollEventThrottle={16}
+        >
           <View style={{ flexDirection: "row", gap: GAP }}>
             {weeks.map((week, wi) => (
               <View key={wi} style={{ flexDirection: "column", gap: GAP }}>
@@ -422,7 +466,6 @@ const describeArc = (cx, cy, r, startDeg, endDeg) => {
   return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
 };
 
-// ─── Arc Gauge (semicircle — canvas-style) ───────────────────────────────────
 const ArcGauge = ({ pct }) => {
   const SIZE = 280;
   const CX = SIZE / 2;

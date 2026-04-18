@@ -26,8 +26,7 @@ import Animated, {
   interpolate,
   SlideInRight,
 } from "react-native-reanimated";
-import axios from "axios";
-import * as SecureStore from "expo-secure-store";
+import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -225,7 +224,6 @@ const SettingsRow = ({ icon, label, value, onPress, danger, delay }) => (
   </Animated.View>
 );
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const [user, setUser] = useState(null);
@@ -237,11 +235,7 @@ const ProfileScreen = () => {
 
   const fetchUserData = async () => {
     try {
-      const token = await SecureStore.getItemAsync("token");
-      const response = await axios.get(
-        `${process.env.EXPO_PUBLIC_API_URL}/auth/profile`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const response = await api.get("/auth/profile");
       setUser(response.data);
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -485,7 +479,6 @@ const ProfileScreen = () => {
           />
         </View>
 
-        {/* ── Weekly Goal Progress ─────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <View
             style={{

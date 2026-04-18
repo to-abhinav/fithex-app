@@ -11,7 +11,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Line, Circle, Ellipse, Rect } from 'react-native-svg';
 import colors from '../../theme/colors';
 
-// ─── Icons ───────────────────────────────────────────────────────────────────
 
 const ExploreIcon = ({ color }) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
@@ -20,7 +19,6 @@ const ExploreIcon = ({ color }) => (
   </Svg>
 );
 
-/** Barbell / gym icon — replaces old QR scan icon */
 const GymLogIcon = ({ color }) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     {/* bar */}
@@ -34,7 +32,6 @@ const GymLogIcon = ({ color }) => (
   </Svg>
 );
 
-/** Scale / balance icon — replaces old weight icon */
 const WeightIcon = ({ color }) => (
   <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     {/* scale platform */}
@@ -116,12 +113,10 @@ const LiquidRipple = ({ triggerRef, color }) => {
 const BottomNavBar = ({ activeRoute, onTabPress }) => {
   const insets = useSafeAreaInsets();
 
-  // One Animated.Value per tab — drives pill width + label opacity
   const animations = useRef(
     TABS.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
   ).current;
 
-  // One ripple trigger ref per tab
   const rippleRefs = useRef(TABS.map(() => ({ current: null }))).current;
 
   const activeIndex = TABS.findIndex((t) => t.id === activeRoute);
@@ -224,7 +219,6 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
   );
 };
 
-// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   wrapper: {

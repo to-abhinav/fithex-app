@@ -28,9 +28,9 @@ import Animated, {
 } from "react-native-reanimated";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const LOGIN_URL = `${process.env.EXPO_PUBLIC_API_URL}/auth/login`;
 
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.3);
@@ -129,20 +129,10 @@ const LoginScreen = ({ navigation }) => {
     setLoading(true);
 
     try {
-      const response = await fetch(LOGIN_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email: email.trim(), password }),
+      const { data } = await api.post("/auth/login", {
+        email: email.trim(),
+        password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        Alert.alert("Login Failed", data.message || "Invalid credentials.");
-        return;
-      }
 
       if (!data.token) {
         Alert.alert("Error", "No token received from server");
@@ -154,8 +144,12 @@ const LoginScreen = ({ navigation }) => {
       await signIn(data.token);
       console.log("Login successful. Token stored");
     } catch (error) {
-      console.error("Login error:", error.message);
-      Alert.alert("Error", error.message || "Could not connect to server. Check your network.");
+      const message =
+        error.response?.data?.message ||
+        error.message ||
+        "Could not connect to server. Check your network.";
+      console.error("Login error:", message);
+      Alert.alert("Login Failed", message);
     } finally {
       setLoading(false);
     }

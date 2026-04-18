@@ -45,7 +45,6 @@ export default function PaymentScreen({ route, navigation }) {
         razorpay_signature:  paymentData.razorpaySignature,
       });
 
-      // Step 4 — Navigate to success screen
       navigation.replace("PaymentSuccess", { plan, gym });
 
     } catch (error) {
