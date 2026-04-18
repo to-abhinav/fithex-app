@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,60 +8,108 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path, Line, Rect, Polyline, Circle } from 'react-native-svg';
+import Svg, { Path, Line, Circle, Ellipse, Rect } from 'react-native-svg';
 import colors from '../../theme/colors';
 
 // ─── Icons ───────────────────────────────────────────────────────────────────
 
-const HomeIcon = ({ color }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <Polyline points="9,22 9,12 15,12 15,22" />
-  </Svg>
-);
-
 const ExploreIcon = ({ color }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="11" cy="11" r="8" />
     <Line x1="21" y1="21" x2="16.65" y2="16.65" />
   </Svg>
 );
 
-const ScanIcon = ({ color }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-    <Rect x="3" y="3" width="5" height="5" rx="1" />
-    <Rect x="16" y="3" width="5" height="5" rx="1" />
-    <Rect x="3" y="16" width="5" height="5" rx="1" />
-    <Line x1="16" y1="16" x2="21" y2="16" />
-    <Line x1="16" y1="19" x2="21" y2="19" />
-    <Line x1="19" y1="16" x2="19" y2="21" />
+/** Barbell / gym icon — replaces old QR scan icon */
+const GymLogIcon = ({ color }) => (
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    {/* bar */}
+    <Line x1="6.5" y1="12" x2="17.5" y2="12" />
+    {/* left plates */}
+    <Rect x="2" y="9.5" width="2.5" height="5" rx="1" />
+    <Rect x="4.5" y="10.5" width="2" height="3" rx="0.5" />
+    {/* right plates */}
+    <Rect x="17.5" y="10.5" width="2" height="3" rx="0.5" />
+    <Rect x="19.5" y="9.5" width="2.5" height="5" rx="1" />
   </Svg>
 );
 
+/** Scale / balance icon — replaces old weight icon */
 const WeightIcon = ({ color }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-    <Path d="M12 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z" />
-    <Path d="M6.5 8h11l1.5 12H5L6.5 8z" />
-    <Line x1="12" y1="8" x2="12" y2="20" />
-    <Line x1="9" y1="14" x2="15" y2="14" />
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    {/* scale platform */}
+    <Path d="M4 20h16" />
+    {/* central pole */}
+    <Line x1="12" y1="20" x2="12" y2="8" />
+    {/* beam */}
+    <Line x1="5" y1="8" x2="19" y2="8" />
+    {/* left pan */}
+    <Path d="M5 8 C5 5 2 5 2 8" />
+    {/* right pan */}
+    <Path d="M19 8 C19 5 22 5 22 8" />
+    {/* pivot circle */}
+    <Circle cx="12" cy="8" r="1.2" fill={color} stroke="none" />
   </Svg>
 );
 
 const ProfileIcon = ({ color }) => (
-  <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
     <Path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
     <Circle cx="12" cy="7" r="4" />
   </Svg>
 );
 
-// ─── Tab Definitions ─────────────────────────────────────────────────────────
 
 const TABS = [
-  { id: 'ExploreGyms', label: 'Explore',  Icon: ExploreIcon },
-  { id: 'GymLog',     label: 'Gym',       Icon: ScanIcon    },
-  { id: 'Weight',     label: 'Weight',    Icon: WeightIcon  },
-  { id: 'Profile',    label: 'Profile',   Icon: ProfileIcon },
+  { id: 'ExploreGyms', label: 'Explore', Icon: ExploreIcon, accent: '#6366F1' },
+  { id: 'GymLog',      label: 'Gym',     Icon: GymLogIcon,  accent: '#EA580C' },
+  { id: 'Weight',      label: 'Weight',  Icon: WeightIcon,  accent: '#34d399' },
+  { id: 'Profile',     label: 'Profile', Icon: ProfileIcon, accent: '#8B5CF6' },
 ];
+
+
+const LiquidRipple = ({ triggerRef, color }) => {
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (triggerRef) {
+      triggerRef.current = () => {
+        scale.setValue(0);
+        opacity.setValue(0.6);
+        Animated.parallel([
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 480,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 480,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      };
+    }
+  }, []);
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: color,
+        top: -14,
+        left: -14,
+        transform: [{ scale }],
+        opacity,
+      }}
+    />
+  );
+};
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -73,6 +121,9 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
     TABS.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
   ).current;
 
+  // One ripple trigger ref per tab
+  const rippleRefs = useRef(TABS.map(() => ({ current: null }))).current;
+
   const activeIndex = TABS.findIndex((t) => t.id === activeRoute);
 
   useEffect(() => {
@@ -82,19 +133,24 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
     const anims = animations.map((anim, i) =>
       Animated.spring(anim, {
         toValue: i === idx ? 1 : 0,
-        tension: 320,
-        friction: 22,
-        useNativeDriver: false, // width interpolation needs layout driver
+        tension: 280,
+        friction: 20,
+        useNativeDriver: false,
       })
     );
     Animated.parallel(anims).start();
   }, [activeRoute]);
 
+  const handlePress = useCallback((tab, i) => {
+    if (rippleRefs[i]?.current) rippleRefs[i].current();
+    setTimeout(() => onTabPress(tab.id), 120);
+  }, [onTabPress]);
+
   return (
     <View
       style={[
         styles.wrapper,
-        { paddingBottom: Math.max(insets.bottom, 12) },
+        { paddingBottom: Math.max(insets.bottom, 14) },
       ]}
     >
       <View style={styles.bar}>
@@ -102,28 +158,25 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
           const anim = animations[i];
           const isActive = i === activeIndex;
 
-          // Pill width: inactive = 44 (icon only), active = 110 (icon + label)
           const pillWidth = anim.interpolate({
             inputRange: [0, 1],
-            outputRange: [44, 116],
+            outputRange: [52, 120],
           });
 
-          // Background: inactive = transparent, active = brand gradient sim
           const pillBg = anim.interpolate({
             inputRange: [0, 1],
-            outputRange: ['rgba(99,102,241,0)', 'rgba(99,102,241,1)'],
+            outputRange: [`${tab.accent}00`, tab.accent],
           });
 
-          // Label opacity
           const labelOpacity = anim.interpolate({
             inputRange: [0, 0.5, 1],
             outputRange: [0, 0, 1],
           });
 
-          // Label max-width to slide in
+          // Label slide-in
           const labelMaxWidth = anim.interpolate({
             inputRange: [0, 1],
-            outputRange: [0, 70],
+            outputRange: [0, 72],
           });
 
           const iconColor = isActive ? '#FFFFFF' : colors.textMuted;
@@ -139,10 +192,13 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
                 },
               ]}
             >
+              {/* Liquid ripple layer */}
+              <LiquidRipple triggerRef={rippleRefs[i]} color={tab.accent} />
+
               <TouchableOpacity
                 style={styles.pillInner}
-                onPress={() => onTabPress(tab.id)}
-                activeOpacity={0.8}
+                onPress={() => handlePress(tab, i)}
+                activeOpacity={0.75}
                 accessibilityRole="button"
                 accessibilityLabel={tab.label}
               >
@@ -152,7 +208,7 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
                     overflow: 'hidden',
                     maxWidth: labelMaxWidth,
                     opacity: labelOpacity,
-                    marginLeft: 6,
+                    marginLeft: 7,
                   }}
                 >
                   <Text style={styles.label} numberOfLines={1}>
@@ -178,7 +234,6 @@ const styles = StyleSheet.create({
     right: 0,
     alignItems: 'center',
     paddingHorizontal: 16,
-    // Prevent touches falling through
     pointerEvents: 'box-none',
   },
   bar: {
@@ -188,27 +243,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-around',
     paddingHorizontal: 8,
-    height: 58,
+    height: 70,          // ← taller from 58
     width: '100%',
-    maxWidth: 380,
-    // Subtle border glow
+    maxWidth: 390,
     borderWidth: 1,
     borderColor: 'rgba(99,102,241,0.18)',
-    // Shadow
     ...Platform.select({
       ios: {
         shadowColor: '#6366F1',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.35,
-        shadowRadius: 20,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 24,
       },
       android: {
-        elevation: 20,
+        elevation: 24,
       },
     }),
   },
   pill: {
-    height: 42,
+    height: 52,          // ← taller pill from 42
     borderRadius: 999,
     overflow: 'hidden',
   },
@@ -217,13 +270,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
   label: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
   },
 });
 

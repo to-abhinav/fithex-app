@@ -1,31 +1,5 @@
-import { useState, useCallback } from "react";
-import * as SecureStore from "expo-secure-store";
-
 /**
- * Custom hook for authentication helpers.
- * Provides token storage, retrieval, and logout.
+ * Re-exports the context-based useAuth hook.
+ * Kept for backwards-compatibility — prefer importing from context/AuthContext.
  */
-const useAuth = () => {
-  const [loading, setLoading] = useState(false);
-
-  const getToken = useCallback(async () => {
-    return await SecureStore.getItemAsync("token");
-  }, []);
-
-  const saveToken = useCallback(async (token) => {
-    await SecureStore.setItemAsync("token", token);
-  }, []);
-
-  const logout = useCallback(async () => {
-    setLoading(true);
-    try {
-      await SecureStore.deleteItemAsync("token");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return { getToken, saveToken, logout, loading };
-};
-
-export default useAuth;
+export { useAuth as default, useAuth } from "../context/AuthContext";

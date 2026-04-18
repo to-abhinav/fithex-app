@@ -27,6 +27,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import * as SecureStore from "expo-secure-store";
+import { useAuth } from "../../context/AuthContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const LOGIN_URL = `${process.env.EXPO_PUBLIC_API_URL}/auth/login`;
@@ -111,6 +112,7 @@ const BorderBeam = () => {
 
 // ─── Login Screen ──────────────────────────────────────────────────────
 const LoginScreen = ({ navigation }) => {
+  const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -148,12 +150,9 @@ const LoginScreen = ({ navigation }) => {
         return;
       }
 
-      await SecureStore.setItemAsync("token", data.token);
+      // Persist token & switch to authenticated stack via context
+      await signIn(data.token);
       console.log("Login successful. Token stored");
-
-      navigation.replace("Main");
-      setEmail("");
-      setPassword("");
     } catch (error) {
       console.error("Login error:", error.message);
       Alert.alert("Error", error.message || "Could not connect to server. Check your network.");

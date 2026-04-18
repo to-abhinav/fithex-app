@@ -29,18 +29,17 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import Svg, {
-  Rect,
-  Text as SvgText,
-  Line,
   Path,
+  Circle,
   Defs,
   LinearGradient as SvgGradient,
   Stop,
+  G,
+  Line as SvgLine,
 } from "react-native-svg";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Orange Palette ────────────────────────────────────────────────────────────
 const ORANGE = {
   lightest: "rgba(251,191,36,0.15)",
   light: "#FCD34D",
@@ -50,7 +49,6 @@ const ORANGE = {
   darkest: "#C2410C",
 };
 
-// ─── Mock streak data (365 days) ───────────────────────────────────────────────
 const generateStreakData = () => {
   const data = [];
   const today = new Date();
@@ -76,7 +74,6 @@ const generateStreakData = () => {
 
 const STREAK_DATA = generateStreakData();
 
-// ─── Mock occupancy data (hourly 0-100%) ─────────────────────────────────────
 const OCCUPANCY_DATA = [
   { hour: "5 AM", pct: 15 },
   { hour: "6 AM", pct: 38 },
@@ -97,6 +94,16 @@ const OCCUPANCY_DATA = [
   { hour: "9 PM", pct: 42 },
   { hour: "10 PM", pct: 18 },
 ];
+
+
+
+// ─── Bucket pct → label (no numbers ever shown) ───────────────────────────────
+const bucketLabel = (pct) => {
+  if (pct >= 75) return { label: "Very Busy", color: "#EF4444" };
+  if (pct >= 50) return { label: "Busy",     color: ORANGE.core  };
+  if (pct >= 25) return { label: "Moderate", color: ORANGE.mid   };
+  return              { label: "Quiet",    color: "#34d399" };
+};
 
 // ─── Mock log entries ─────────────────────────────────────────────────────────
 const INITIAL_LOGS = [
@@ -284,7 +291,7 @@ const QRScanModal = ({ visible, onClose, onScanned, mode }) => {
             Point camera at the gym QR code
           </Text>
 
-          {/* Simulate Scan button */}
+         
           <TouchableOpacity
             onPress={onScanned}
             activeOpacity={0.85}
@@ -312,7 +319,6 @@ const QRScanModal = ({ visible, onClose, onScanned, mode }) => {
   );
 };
 
-// ─── Streak Grid ─────────────────────────────────────────────────────────────
 const StreakGrid = ({ data }) => {
   const CELL = 12;
   const GAP = 3;
@@ -320,7 +326,6 @@ const StreakGrid = ({ data }) => {
   const DAYS_PER_WEEK = 7;
   const gridW = SCREEN_WIDTH - 48;
 
-  // Group into weeks
   const weeks = [];
   for (let w = 0; w < WEEKS; w++) {
     weeks.push(data.slice(w * 7, w * 7 + 7));
@@ -404,107 +409,122 @@ const StreakGrid = ({ data }) => {
   );
 };
 
-// ─── Occupancy Bar Chart ─────────────────────────────────────────────────────
-const OccupancyChart = () => {
-  const chartW = SCREEN_WIDTH - 80;
-  const chartH = 120;
-  const barW = (chartW / OCCUPANCY_DATA.length) - 3;
-  const nowOcc = getOccupancyNow();
+// ─── Arc helpers ─────────────────────────────────────────────────────────────
+const polarToXY = (cx, cy, r, angleDeg) => {
+  const rad = (angleDeg * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+};
+
+const describeArc = (cx, cy, r, startDeg, endDeg) => {
+  const s = polarToXY(cx, cy, r, startDeg);
+  const e = polarToXY(cx, cy, r, endDeg);
+  const largeArc = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${s.x} ${s.y} A ${r} ${r} 0 ${largeArc} 1 ${e.x} ${e.y}`;
+};
+
+// ─── Arc Gauge (semicircle — canvas-style) ───────────────────────────────────
+const ArcGauge = ({ pct }) => {
+  const SIZE = 280;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2 + 6;    // push center slightly below midpoint
+  const R = 108;               // main arc radius
+  const STROKE_W = 14;
+  const START_DEG = 180;       // full semicircle: left
+  const END_DEG = 360;         // full semicircle: right
+  const NEEDLE_R = R - 22;     // how far needle dot sits from center
+
+  const nowBucket = bucketLabel(pct);
+  const labelColor = nowBucket.color;
+  const statusLabel = nowBucket.label;
+
+  // Animated needle dot position
+  const [needlePt, setNeedlePt] = useState(polarToXY(CX, CY, NEEDLE_R, START_DEG));
+  // Animated fill end angle
+  const [fillEnd, setFillEnd] = useState(START_DEG);
+
+  useEffect(() => {
+    const targetAngle = START_DEG + (pct / 100) * (END_DEG - START_DEG);
+    let start = null;
+    const duration = 1400;
+    const raf = setInterval(() => {
+      if (!start) start = Date.now();
+      const t = Math.min((Date.now() - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - t, 3); // ease-out cubic
+      const curAngle = START_DEG + ease * (targetAngle - START_DEG);
+      setNeedlePt(polarToXY(CX, CY, NEEDLE_R, curAngle));
+      setFillEnd(curAngle);
+      if (t >= 1) clearInterval(raf);
+    }, 16);
+    return () => clearInterval(raf);
+  }, [pct]);
+
+  // Tick marks at 0%, 25%, 50%, 75%, 100%
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+  const TICK_INNER = R - 20;
+  const TICK_OUTER = R - 10;
 
   return (
-    <View>
-      <View style={{ flexDirection: "row", alignItems: "flex-end", height: chartH, gap: 3 }}>
-        {OCCUPANCY_DATA.map((item, i) => {
-          const barH = (item.pct / 100) * chartH;
-          const isNow = i === Math.round(OCCUPANCY_DATA.length * (currentHour / 24));
+    <View style={{ alignItems: "center", position: "relative" }}>
+      <Svg width={SIZE} height={SIZE * 0.58} viewBox={`0 0 ${SIZE} ${SIZE * 0.58}`}>
+        {/* Background track */}
+        <Path
+          d={describeArc(CX, CY, R, START_DEG, END_DEG)}
+          stroke="#222228"
+          strokeWidth={STROKE_W}
+          fill="none"
+          strokeLinecap="round"
+        />
+
+        {/* Colored fill arc */}
+        {fillEnd > START_DEG && (
+          <Path
+            d={describeArc(CX, CY, R, START_DEG, fillEnd)}
+            stroke={labelColor}
+            strokeWidth={STROKE_W}
+            fill="none"
+            strokeLinecap="round"
+          />
+        )}
+
+        {/* Tick marks */}
+        {ticks.map((t, i) => {
+          const angle = START_DEG + t * (END_DEG - START_DEG);
+          const p1 = polarToXY(CX, CY, TICK_INNER, angle);
+          const p2 = polarToXY(CX, CY, TICK_OUTER, angle);
           return (
-            <View key={i} style={{ flex: 1, alignItems: "center" }}>
-              <View
-                style={{
-                  width: "100%",
-                  height: barH,
-                  borderRadius: 4,
-                  backgroundColor: isNow
-                    ? ORANGE.core
-                    : item.pct > 75
-                    ? "rgba(249,115,22,0.65)"
-                    : item.pct > 50
-                    ? "rgba(245,158,11,0.45)"
-                    : "rgba(251,191,36,0.22)",
-                  borderTopLeftRadius: 4,
-                  borderTopRightRadius: 4,
-                }}
-              />
-            </View>
+            <SvgLine
+              key={i}
+              x1={p1.x}
+              y1={p1.y}
+              x2={p2.x}
+              y2={p2.y}
+              stroke="#444"
+              strokeWidth={1.5}
+            />
           );
         })}
-      </View>
 
-      {/* X labels */}
-      <View style={{ flexDirection: "row", marginTop: 6 }}>
-        {OCCUPANCY_DATA.map((item, i) => (
-          <Text
-            key={i}
-            style={{
-              flex: 1,
-              fontSize: 7.5,
-              color: i % 3 === 0 ? "rgba(255,255,255,0.4)" : "transparent",
-              textAlign: "center",
-            }}
-          >
-            {item.hour}
-          </Text>
-        ))}
-      </View>
+        {/* Needle tip dot */}
+        <Circle cx={needlePt.x} cy={needlePt.y} r={5} fill={labelColor} />
 
-      {/* Occupancy indicator */}
-      <View
-        style={{
-          marginTop: 14,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 10,
-          backgroundColor: "rgba(255,255,255,0.04)",
-          borderRadius: 12,
-          padding: 12,
-          borderWidth: 1,
-          borderColor: "rgba(255,255,255,0.07)",
-        }}
-      >
-        <View
-          style={{
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            backgroundColor: nowOcc > 75 ? "rgba(239,68,68,0.15)" : nowOcc > 50 ? "rgba(249,115,22,0.15)" : "rgba(52,211,153,0.15)",
-            borderWidth: 1,
-            borderColor: nowOcc > 75 ? "rgba(239,68,68,0.3)" : nowOcc > 50 ? "rgba(249,115,22,0.3)" : "rgba(52,211,153,0.3)",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Ionicons
-            name="people"
-            size={20}
-            color={nowOcc > 75 ? "#EF4444" : nowOcc > 50 ? ORANGE.core : "#34d399"}
-          />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>
-            {nowOcc > 75 ? "Very Busy" : nowOcc > 50 ? "Moderate" : "Quiet"} Right Now
-          </Text>
-          <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginTop: 2 }}>
-            {nowOcc > 75
-              ? "Consider off-peak hours for a better experience"
-              : nowOcc > 50
-              ? "A decent number of members are working out"
-              : "Great time to hit the gym! It's fairly empty 🎉"}
-          </Text>
-        </View>
+        {/* Centre hub dot */}
+        <Circle cx={CX} cy={CY} r={5} fill="#333" />
+      </Svg>
+
+      {/* Status label inside gauge */}
+      <View style={{ position: "absolute", bottom: 10, left: 0, right: 0, alignItems: "center" }}>
+        <Text style={{ fontSize: 30, fontWeight: "900", color: labelColor, letterSpacing: 1 }}>
+          {statusLabel}
+        </Text>
+        <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: 2, marginTop: 2 }}>
+          Right now
+        </Text>
       </View>
     </View>
   );
 };
+
+
 
 // ─── Log Row ─────────────────────────────────────────────────────────────────
 const LogRow = ({ log, delay }) => (
@@ -971,17 +991,35 @@ const GymLogScreen = () => {
               padding: 18,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            {/* Section header */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <Ionicons name="people-outline" size={17} color={ORANGE.mid} />
               <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
                 Gym Occupancy
               </Text>
-              <Text style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.3)", fontStyle: "italic" }}>
-                approx. pattern
-              </Text>
+              <View
+                style={{
+                  marginLeft: "auto",
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  backgroundColor: "rgba(52,211,153,0.10)",
+                  borderWidth: 1,
+                  borderColor: "rgba(52,211,153,0.25)",
+                  borderRadius: 20,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                }}
+              >
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#34d399" }} />
+                <Text style={{ fontSize: 10, color: "#34d399", fontWeight: "700" }}>Live</Text>
+              </View>
             </View>
 
-            <OccupancyChart />
+            {/* Arc gauge — no numbers */}
+            <ArcGauge pct={getOccupancyNow()} />
+
+
           </View>
         </Animated.View>
 

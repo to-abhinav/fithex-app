@@ -17,13 +17,11 @@ export default function PaymentScreen({ route, navigation }) {
   const handlePayNow = async () => {
     setLoading(true);
     try {
-      // Step 1 — Ask backend to create a Razorpay order
       const { data } = await api.post("/payment/create-order", {
         planId: plan._id,
         gymId:  gym._id,
       });
 
-      // Step 2 — Open Razorpay checkout sheet
       const options = {
         description:  `${plan.name} at ${gym.name}`,
         currency:     data.currency,
@@ -41,7 +39,6 @@ export default function PaymentScreen({ route, navigation }) {
 
       const paymentData = await RazorpayCheckout.open(options);
 
-      // Step 3 — Send result to backend for verification + auto-approval
       await api.post("/payment/verify", {
         razorpay_order_id:   paymentData.razorpayOrderId,
         razorpay_payment_id: paymentData.razorpayPaymentId,
@@ -52,7 +49,6 @@ export default function PaymentScreen({ route, navigation }) {
       navigation.replace("PaymentSuccess", { plan, gym });
 
     } catch (error) {
-      // User closed the Razorpay modal — do nothing
       if (error.code === "PAYMENT_CANCELLED") return;
 
       Alert.alert(
@@ -78,7 +74,6 @@ export default function PaymentScreen({ route, navigation }) {
         <Row label="Total" value={`₹${plan.price}`} large />
       </View>
 
-      {/* What happens after payment */}
       <Text style={styles.note}>
         Membership activates immediately after payment. No owner approval needed.
       </Text>
@@ -100,7 +95,6 @@ export default function PaymentScreen({ route, navigation }) {
   );
 }
 
-// Small helper component for label-value rows
 const Row = ({ label, value, large }) => (
   <View style={styles.row}>
     <Text style={styles.rowLabel}>{label}</Text>
