@@ -195,7 +195,7 @@ const BlinkingCursor = () => {
 
 // ─── OTP Verification Screen ──────────────────────────────────────────────────
 const OtpVerificationScreen = ({ navigation, route }) => {
-  const { name, email, password } = route?.params || {};
+  const { name, email, password, role } = route?.params || {};
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -253,10 +253,10 @@ const OtpVerificationScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      await api.post("/users/register", { name, email, password, otp: code });
-      Alert.alert("Success!", "Account created successfully.", [
-        { text: "Continue", onPress: () => navigation.navigate("Login") },
-      ]);
+      const { data } = await api.post("/users/register", { name, email, password, role, otp: code });
+      // Don't signIn() here — that would swap the navigator stack before
+      // ProfileSetup can mount. Pass the token as a param instead.
+      navigation.navigate("ProfileSetup", { token: data.token });
     } catch (err) {
       Alert.alert("Error", err.response?.data?.message || "Invalid OTP");
     } finally {

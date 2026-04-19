@@ -3,6 +3,8 @@ import { useAuth } from "../context/AuthContext";
 import AuthLoadingScreen from "../screens/auth/AuthLoadingScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegistrationScreen";
+import ChooseRoleScreen from "../screens/auth/ChooseRoleScreen";
+import ProfileSetupScreen from "../screens/auth/ProfileSetupScreen";
 import OtpVerificationScreen from "../screens/auth/OtpVerificationScreen";
 import GymInfoScreen from "../screens/dashboard/GymInfoScreen";
 import GymPlansScreen from "../screens/dashboard/GymPlansScreen";
@@ -37,7 +39,9 @@ const AppNavigator = () => {
         <>
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Registration" component={RegisterScreen} />
+          <Stack.Screen name="ChooseRole" component={ChooseRoleScreen} />
           <Stack.Screen name="OtpVerification" component={OtpVerificationScreen} />
+          <Stack.Screen name="ProfileSetup" component={ProfileSetupScreen} />
         </>
       )}
     </Stack.Navigator>

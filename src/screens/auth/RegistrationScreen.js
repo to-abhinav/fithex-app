@@ -147,7 +147,7 @@ const RegisterScreen = ({ navigation }) => {
       // Step 1: send OTP to email
       await api.post("/users/send-otp", { email });
       // Step 2: navigate to OTP screen, passing registration data
-      navigation.navigate("OtpVerification", { name, email, password });
+      navigation.navigate("ChooseRole", { name, email, password });
     } catch (error) {
       Alert.alert(
         "Error",
