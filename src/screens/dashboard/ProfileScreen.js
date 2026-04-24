@@ -282,6 +282,23 @@ const ProfileScreen = () => {
     ? new Date(user.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })
     : "N/A";
 
+  // Format preferred visit time for display
+  const formatVisitTime = (hour) => {
+    if (hour === null || hour === undefined) return "Not set";
+    const h = hour % 12 || 12;
+    const period = hour < 12 ? "AM" : "PM";
+    return `${h} ${period}`;
+  };
+
+  // Friendly fitness goal label
+  const goalLabel = {
+    lose_weight: "Lose Weight",
+    gain_muscle: "Gain Muscle",
+    maintain_fitness: "Maintain",
+    improve_endurance: "Endurance",
+    increase_flexibility: "Flexibility",
+  }[user?.fitnessGoal] || "Not set";
+
   return (
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
       <StatusBar barStyle="light-content" />
@@ -437,13 +454,27 @@ const ProfileScreen = () => {
               {user.email}
             </Text>
           )}
+
+          {/* Phone */}
+          {user?.phone && (
+            <Text
+              style={{
+                fontSize: 12,
+                color: "rgba(255,255,255,0.25)",
+                marginTop: 4,
+                fontWeight: "400",
+              }}
+            >
+              📱 {user.phone}
+            </Text>
+          )}
         </Animated.View>
 
         {/* ── Stats Row ───────────────────────────────────────────────────── */}
         <View style={{ flexDirection: "row", gap: 10, paddingHorizontal: 20, marginBottom: 16 }}>
           <StatCard
-            value="12"
-            label="Workouts"
+            value={user?.numberOfWorkoutDay ?? "—"}
+            label="Workout Days"
             icon="🏋️"
             color="#a5b4fc"
             bgColor="rgba(99,102,241,0.08)"
@@ -451,17 +482,17 @@ const ProfileScreen = () => {
             delay={300}
           />
           <StatCard
-            value="5🔥"
-            label="Day Streak"
-            icon="⚡"
+            value={user?.weight ? `${user.weight}` : "—"}
+            label="Weight (kg)"
+            icon="⚖️"
             color="#fca5a5"
             bgColor="rgba(239,68,68,0.08)"
             borderColor="rgba(239,68,68,0.18)"
             delay={380}
           />
           <StatCard
-            value="2"
-            label="Goals"
+            value={goalLabel}
+            label="Goal"
             icon="🎯"
             color="#6ee7b7"
             bgColor="rgba(16,185,129,0.08)"
@@ -469,9 +500,9 @@ const ProfileScreen = () => {
             delay={460}
           />
           <StatCard
-            value="8.2"
-            label="Avg Hours"
-            icon="😴"
+            value={formatVisitTime(user?.preferredVisitTime)}
+            label="Visit Time"
+            icon="⏰"
             color="#93c5fd"
             bgColor="rgba(59,130,246,0.08)"
             borderColor="rgba(59,130,246,0.18)"
@@ -496,7 +527,7 @@ const ProfileScreen = () => {
                   Weekly Goal
                 </Text>
               </View>
-              <Text style={{ fontSize: 13, fontWeight: "800", color: "#a5b4fc" }}>3 / 5</Text>
+              <Text style={{ fontSize: 13, fontWeight: "800", color: "#a5b4fc" }}>— / {user?.numberOfWorkoutDay ?? 5}</Text>
             </View>
 
             {/* Segmented progress bubbles */}

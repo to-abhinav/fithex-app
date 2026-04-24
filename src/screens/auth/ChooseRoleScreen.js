@@ -292,7 +292,7 @@ const RoleCard = ({ icon, emoji, title, subtitle, features, selected, onPress, g
 
 // ─── Choose Role Screen ───────────────────────────────────────────────────────
 const ChooseRoleScreen = ({ navigation, route }) => {
-  const { name, email, password } = route?.params || {};
+  const { name, email, phone, password } = route?.params || {};
   const [selectedRole, setSelectedRole] = useState(null);
 
   const handleContinue = () => {
@@ -300,6 +300,7 @@ const ChooseRoleScreen = ({ navigation, route }) => {
     navigation.navigate("OtpVerification", {
       name,
       email,
+      phone,
       password,
       role: selectedRole,
     });

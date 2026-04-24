@@ -193,9 +193,8 @@ const BlinkingCursor = () => {
   );
 };
 
-// ─── OTP Verification Screen ──────────────────────────────────────────────────
 const OtpVerificationScreen = ({ navigation, route }) => {
-  const { name, email, password, role } = route?.params || {};
+  const { name, email, phone, password, role } = route?.params || {};
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(""));
   const [focusedIndex, setFocusedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -253,8 +252,7 @@ const OtpVerificationScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
-      const { data } = await api.post("/users/register", { name, email, password, role, otp: code });
-      // Don't signIn() here — that would swap the navigator stack before
+      const { data } = await api.post("/users/register", { name, email, phone, password, role, otp: code });
       // ProfileSetup can mount. Pass the token as a param instead.
       navigation.navigate("ProfileSetup", { token: data.token });
     } catch (err) {

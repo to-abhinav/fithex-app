@@ -14,6 +14,8 @@ import {
 import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import * as SecureStore from "expo-secure-store";
+import { useAuth } from "../../context/AuthContext";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -265,13 +267,7 @@ const GENDER_OPTIONS = [
   { value: "other",  label: "Other",  icon: "ellipsis-horizontal-outline" },
 ];
 
-const ACTIVITY_OPTIONS = [
-  { value: "sedentary",         label: "Sedentary",        icon: "bed-outline" },
-  { value: "lightly_active",    label: "Lightly Active",   icon: "walk-outline" },
-  { value: "moderately_active", label: "Moderately Active",icon: "bicycle-outline" },
-  { value: "very_active",       label: "Very Active",      icon: "barbell-outline" },
-  { value: "extra_active",      label: "Extra Active",     icon: "flame-outline" },
-];
+
 
 const FITNESS_GOALS = [
   { value: "lose_weight",           label: "Lose Weight",           icon: "trending-down-outline", gradientColors: ["#f43f5e", "#e11d48"] },
@@ -305,21 +301,32 @@ const StepDots = ({ step, total }) => (
   </View>
 );
 
-// ─── Profile Setup Screen ──────────────────────────────────────────────────────
-const ProfileSetupScreen = ({ navigation }) => {
+//  Profile Setup Screen 
+const ProfileSetupScreen = ({ navigation, route }) => {
+  const { signIn } = useAuth();
+  const token = route?.params?.token;
+
   const [step, setStep] = useState(0); // 0 = basics, 1 = goals
   const [loading, setLoading] = useState(false);
 
-  // ── Form state ───────────────────────────────────────────────
+ 
+  useEffect(() => {
+    if (token) {
+      SecureStore.setItemAsync("token", token).catch(() => {});
+    }
+  }, [token]);
+
+  //  Form state 
   const [age, setAge]               = useState("");
   const [gender, setGender]         = useState(null);
   const [heightCm, setHeightCm]     = useState("");
   const [weight, setWeight]         = useState("");
   const [goalWeight, setGoalWeight] = useState("");
-  const [fitnessGoal, setFitnessGoal]   = useState(null);
-  const [activityLevel, setActivityLevel] = useState(null);
+  const [fitnessGoal, setFitnessGoal]           = useState(null);
+  const [numberOfWorkoutDay, setNumberOfWorkoutDay] = useState(3);
+  const [preferredVisitTime, setPreferredVisitTime] = useState(null);
 
-  // ── Step 1 validation ────────────────────────────────────────
+  //  Step 1 validation 
   const step0Valid =
     age.trim() !== "" &&
     parseInt(age, 10) >= 10 &&
@@ -330,7 +337,7 @@ const ProfileSetupScreen = ({ navigation }) => {
     goalWeight.trim() !== "";
 
   // ── Step 2 validation ────────────────────────────────────────
-  const step1Valid = fitnessGoal !== null && activityLevel !== null;
+  const step1Valid = fitnessGoal !== null && preferredVisitTime !== null;
 
   const handleNext = () => {
     if (step === 0 && !step0Valid) {
@@ -355,9 +362,10 @@ const ProfileSetupScreen = ({ navigation }) => {
         weight: parseFloat(weight),
         goalWeight: parseFloat(goalWeight),
         fitnessGoal,
-        activityLevel,
+        numberOfWorkoutDay,
+        preferredVisitTime,
       });
-      // User is already signed in — AppNavigator auto-switches to the main stack
+      await signIn(token);
       Alert.alert("All Set! 🎉", "Your fitness profile is ready. Let's get started!");
     } catch (err) {
       Alert.alert("Error", err.response?.data?.message || "Failed to save profile.");
@@ -365,6 +373,7 @@ const ProfileSetupScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
@@ -388,8 +397,7 @@ const ProfileSetupScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── Back button */}
-          <Animated.View entering={FadeInDown.delay(100).springify()}>
+\          <Animated.View entering={FadeInDown.delay(100).springify()}>
             {step === 1 ? (
               <TouchableOpacity
                 onPress={() => setStep(0)}
@@ -449,7 +457,6 @@ const ProfileSetupScreen = ({ navigation }) => {
                 </Text>
               </Animated.View>
 
-              {/* ── STEP 0: Body Stats ─────────────────────────────────── */}
               {step === 0 && (
                 <>
                   <Animated.View entering={FadeInDown.delay(350).springify()}>
@@ -547,13 +554,109 @@ const ProfileSetupScreen = ({ navigation }) => {
                   </Animated.View>
 
                   <Animated.View entering={FadeInDown.delay(450).springify()}>
-                    <SectionLabel label="Activity Level" icon="pulse-outline" />
-                    <ChipSelector
-                      options={ACTIVITY_OPTIONS}
-                      selected={activityLevel}
-                      onSelect={setActivityLevel}
-                      activeColor="#34d399"
-                    />
+                    <SectionLabel label="Workout Days / Week" icon="calendar-outline" />
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 16 }}>
+                      <TouchableOpacity
+                        onPress={() => setNumberOfWorkoutDay(Math.max(0, numberOfWorkoutDay - 1))}
+                        activeOpacity={0.7}
+                        style={{
+                          width: 44, height: 44, borderRadius: 14,
+                          backgroundColor: "rgba(255,255,255,0.06)",
+                          borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="remove" size={20} color="rgba(255,255,255,0.6)" />
+                      </TouchableOpacity>
+
+                      <View style={{ alignItems: "center", gap: 2 }}>
+                        <Text style={{ fontSize: 36, fontWeight: "900", color: "#34d399", letterSpacing: -1 }}>
+                          {numberOfWorkoutDay}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "600" }}>
+                          days per week
+                        </Text>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => setNumberOfWorkoutDay(Math.min(7, numberOfWorkoutDay + 1))}
+                        activeOpacity={0.7}
+                        style={{
+                          width: 44, height: 44, borderRadius: 14,
+                          backgroundColor: "rgba(52,211,153,0.12)",
+                          borderWidth: 1, borderColor: "rgba(52,211,153,0.3)",
+                          alignItems: "center", justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name="add" size={20} color="#34d399" />
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* Day dots visual */}
+                    <View style={{ flexDirection: "row", gap: 6, justifyContent: "center", marginBottom: 16 }}>
+                      {[0, 1, 2, 3, 4, 5, 6].map((d) => (
+                        <View
+                          key={d}
+                          style={{
+                            width: 32, height: 6, borderRadius: 3,
+                            backgroundColor: d < numberOfWorkoutDay
+                              ? "#34d399"
+                              : "rgba(255,255,255,0.08)",
+                          }}
+                        />
+                      ))}
+                    </View>
+                  </Animated.View>
+
+                  <Animated.View entering={FadeInDown.delay(550).springify()}>
+                    <SectionLabel label="Preferred Visit Time" icon="time-outline" />
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+                      <View style={{ flexDirection: "row", gap: 8, paddingRight: 8 }}>
+                        {[
+                          { value: 5,  label: "5 AM",  icon: "partly-sunny-outline" },
+                          { value: 6,  label: "6 AM",  icon: "sunny-outline" },
+                          { value: 7,  label: "7 AM",  icon: "sunny-outline" },
+                          { value: 8,  label: "8 AM",  icon: "sunny-outline" },
+                          { value: 9,  label: "9 AM",  icon: "sunny-outline" },
+                          { value: 10, label: "10 AM", icon: "sunny-outline" },
+                          { value: 16, label: "4 PM",  icon: "partly-sunny-outline" },
+                          { value: 17, label: "5 PM",  icon: "partly-sunny-outline" },
+                          { value: 18, label: "6 PM",  icon: "moon-outline" },
+                          { value: 19, label: "7 PM",  icon: "moon-outline" },
+                          { value: 20, label: "8 PM",  icon: "moon-outline" },
+                          { value: 21, label: "9 PM",  icon: "moon-outline" },
+                        ].map((t) => {
+                          const isSelected = preferredVisitTime === t.value;
+                          return (
+                            <TouchableOpacity
+                              key={t.value}
+                              onPress={() => setPreferredVisitTime(t.value)}
+                              activeOpacity={0.8}
+                              style={{
+                                paddingHorizontal: 14, paddingVertical: 10,
+                                borderRadius: 14, alignItems: "center", gap: 4,
+                                borderWidth: isSelected ? 1.5 : 1,
+                                borderColor: isSelected ? "rgba(52,211,153,0.6)" : "rgba(255,255,255,0.08)",
+                                backgroundColor: isSelected ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.04)",
+                                minWidth: 64,
+                              }}
+                            >
+                              <Ionicons
+                                name={t.icon}
+                                size={16}
+                                color={isSelected ? "#34d399" : "rgba(255,255,255,0.3)"}
+                              />
+                              <Text style={{
+                                fontSize: 12, fontWeight: "700",
+                                color: isSelected ? "#fff" : "rgba(255,255,255,0.35)",
+                              }}>
+                                {t.label}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
                   </Animated.View>
 
                   {/* ── Submit button */}

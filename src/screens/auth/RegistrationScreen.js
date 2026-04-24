@@ -114,6 +114,7 @@ const BorderBeam = () => {
 const RegisterScreen = ({ navigation }) => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
@@ -133,8 +134,12 @@ const RegisterScreen = ({ navigation }) => {
 
   // ── Register Handler — sends OTP then navigates to verification ──────
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name || !email || !phone || !password) {
       Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+    if (phone.length < 10 || phone.length > 15 || !/^\d+$/.test(phone)) {
+      Alert.alert("Error", "Phone number must be 10-15 digits");
       return;
     }
     if (!agreed) {
@@ -147,11 +152,18 @@ const RegisterScreen = ({ navigation }) => {
       // Step 1: send OTP to email
       await api.post("/users/send-otp", { email });
       // Step 2: navigate to OTP screen, passing registration data
-      navigation.navigate("ChooseRole", { name, email, password });
+      navigation.navigate("ChooseRole", { name, email, phone, password });
     } catch (error) {
+      console.error("[Register] OTP send failed:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        message: error.message,
+      });
       Alert.alert(
         "Error",
-        error.response?.data?.message || "Failed to send OTP. Please try again."
+        error.response?.data?.message || `Failed to send OTP: ${error.message}`
       );
     } finally {
       setLoading(false);
@@ -336,8 +348,50 @@ const RegisterScreen = ({ navigation }) => {
                   </View>
                 </Animated.View>
 
+                {/* Phone Number */}
+                <Animated.View entering={FadeInDown.delay(550).springify()}>
+                  <Text className="text-[11px] text-white/35 font-semibold uppercase tracking-widest mb-2 ml-1">
+                    Phone Number
+                  </Text>
+                  <View
+                    className="flex-row items-center rounded-xl px-4 h-[50px] gap-2.5 border"
+                    style={{
+                      backgroundColor:
+                        focusedField === "phone"
+                          ? "rgba(255,255,255,0.08)"
+                          : "rgba(255,255,255,0.04)",
+                      borderColor:
+                        focusedField === "phone"
+                          ? "rgba(99,102,241,0.4)"
+                          : "rgba(255,255,255,0.06)",
+                    }}
+                  >
+                    <Ionicons
+                      name="call-outline"
+                      size={16}
+                      color={
+                        focusedField === "phone"
+                          ? "rgba(165,180,252,0.9)"
+                          : "rgba(165,180,252,0.35)"
+                      }
+                    />
+                    <TextInput
+                      className="flex-1 text-[15px] text-white font-normal"
+                      placeholder="9876543210"
+                      placeholderTextColor="rgba(255,255,255,0.2)"
+                      value={phone}
+                      onChangeText={setPhone}
+                      onFocus={() => setFocusedField("phone")}
+                      onBlur={() => setFocusedField(null)}
+                      keyboardType="phone-pad"
+                      maxLength={15}
+                      editable={!loading}
+                    />
+                  </View>
+                </Animated.View>
+
                 {/* Password */}
-                <Animated.View entering={FadeInDown.delay(600).springify()}>
+                <Animated.View entering={FadeInDown.delay(650).springify()}>
                   <Text className="text-[11px] text-white/35 font-semibold uppercase tracking-widest mb-2 ml-1">
                     Password
                   </Text>
@@ -415,7 +469,7 @@ const RegisterScreen = ({ navigation }) => {
                 </Animated.View>
 
                 {/* ── Terms Checkbox ────────────────────────────────── */}
-                <Animated.View entering={FadeInDown.delay(700).springify()}>
+                <Animated.View entering={FadeInDown.delay(750).springify()}>
                   <TouchableOpacity
                     className="flex-row items-start gap-3 pt-1"
                     onPress={() => setAgreed(!agreed)}
@@ -455,7 +509,7 @@ const RegisterScreen = ({ navigation }) => {
                 </Animated.View>
 
                 {/* ── Create Account Button ─────────────────────────── */}
-                <Animated.View entering={FadeInDown.delay(800).springify()}>
+                <Animated.View entering={FadeInDown.delay(850).springify()}>
                   <TouchableOpacity
                     className="mt-2"
                     activeOpacity={0.85}
@@ -494,7 +548,7 @@ const RegisterScreen = ({ navigation }) => {
 
                 {/* ── Divider ───────────────────────────────────────── */}
                 <Animated.View
-                  entering={FadeInDown.delay(900).springify()}
+                  entering={FadeInDown.delay(950).springify()}
                   className="flex-row items-center gap-3 my-1"
                 >
                   <View className="flex-1 h-px bg-white/[0.06]" />
@@ -506,7 +560,7 @@ const RegisterScreen = ({ navigation }) => {
 
                 {/* ── Social Buttons ────────────────────────────────── */}
                 <Animated.View
-                  entering={FadeInDown.delay(1000).springify()}
+                  entering={FadeInDown.delay(1050).springify()}
                   className="flex-row gap-3"
                 >
                   <TouchableOpacity
@@ -535,7 +589,7 @@ const RegisterScreen = ({ navigation }) => {
 
                 {/* ── Sign In Link ──────────────────────────────────── */}
                 <Animated.View
-                  entering={FadeInDown.delay(1100).springify()}
+                  entering={FadeInDown.delay(1150).springify()}
                   className="items-center mt-2"
                 >
                   <TouchableOpacity

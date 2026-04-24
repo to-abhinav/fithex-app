@@ -34,6 +34,7 @@ const AppNavigator = () => {
             component={PaymentSuccess}
             options={{ gestureEnabled: false }}
           />
+          
         </>
       ) : (
         <>
