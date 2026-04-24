@@ -93,209 +93,268 @@ const calcSavings = (plan, monthlyPrice) => {
 const PlanCard = ({ plan, index, monthlyPrice, onEnroll }) => {
   const catMeta  = CATEGORY_META[plan.category]  || CATEGORY_META.Strength;
   const planMeta = PLAN_META[plan.name]           || PLAN_META.Custom;
-  const badge    = getBestValueLabel(plan.name);
+  const badge    = plan.offerLabel || null;
   const savings  = calcSavings(plan, monthlyPrice);
-  const spotsLeft = plan.currentEnrolledMembers !== undefined
-    ? Math.max(0, 100 - plan.currentEnrolledMembers) // demo cap at 100
-    : null;
+  const features = plan.features || [];
+  const hasDiscount = plan.originalPrice && plan.discountPercent > 0;
 
   const pricePerMonth = plan.durationInMonths
     ? (plan.price / plan.durationInMonths).toFixed(0)
     : null;
 
+  // Pulsing dot animation for badges
+  const dotPulse = useSharedValue(1);
+  useEffect(() => {
+    dotPulse.value = withRepeat(
+      withSequence(
+        withTiming(0.4, { duration: 1000, easing: Easing.inOut(Easing.ease) }),
+        withTiming(1, { duration: 1000, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      true
+    );
+  }, []);
+  const dotStyle = useAnimatedStyle(() => ({
+    opacity: dotPulse.value,
+    transform: [{ scale: interpolate(dotPulse.value, [0.4, 1], [0.7, 1]) }],
+  }));
+
   return (
-    <Animated.View entering={FadeInDown.delay(index * 90).springify()} style={{ marginBottom: 16 }}>
+    <Animated.View entering={FadeInDown.delay(index * 100).springify()} style={{ marginBottom: 20 }}>
       <View
         style={{
-          backgroundColor: "rgba(20,20,30,0.92)",
-          borderRadius: 20,
-          borderWidth: 1,
-          borderColor: badge ? `${planMeta.color}40` : "rgba(255,255,255,0.07)",
+          borderRadius: 28,
           overflow: "hidden",
+          borderWidth: 1,
+          borderColor: badge ? `${catMeta.color}30` : "rgba(255,255,255,0.08)",
         }}
       >
-        {/* ── Top Accent Strip ─────────────────────────────── */}
+        {/* ── Card Background Layers ── */}
         <LinearGradient
-          colors={[`${catMeta.color}30`, "transparent"]}
+          colors={["rgba(18,10,38,0.95)", "rgba(13,10,20,0.98)"]}
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={{ height: 3 }}
+          end={{ x: 1, y: 1 }}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}
         />
 
-        <View style={{ padding: 16 }}>
-          {/* ── Header row ────────────────────────────────── */}
-          <View style={{ flexDirection: "row", alignItems: "flex-start", marginBottom: 14 }}>
-            {/* Category Icon */}
+        {/* Purple orb glow top-left */}
+        <View
+          style={{
+            position: "absolute",
+            top: -60,
+            left: -60,
+            width: 180,
+            height: 180,
+            borderRadius: 90,
+            backgroundColor: catMeta.color,
+            opacity: 0.12,
+          }}
+        />
+
+        {/* Shimmer overlay */}
+        <LinearGradient
+          colors={["rgba(255,255,255,0.06)", "transparent", "transparent"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            borderRadius: 28,
+          }}
+        />
+
+        <View style={{ padding: 24, position: "relative" }}>
+          {/* ── Header Row: Icon + Badge ── */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+            {/* Category Icon Circle */}
             <LinearGradient
               colors={catMeta.gradient}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={{
-                width: 46, height: 46, borderRadius: 14,
-                alignItems: "center", justifyContent: "center",
-                marginRight: 12,
+                width: 52,
+                height: 52,
+                borderRadius: 26,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: catMeta.color,
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 12,
+                elevation: 8,
               }}
             >
-              <Ionicons name={catMeta.icon} size={22} color="#fff" />
+              <Ionicons name={catMeta.icon} size={24} color="#fff" />
             </LinearGradient>
 
-            <View style={{ flex: 1 }}>
-              {/* Plan name + badge row */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff", letterSpacing: -0.4 }}>
-                  {plan.name}
-                </Text>
-                {badge && (
-                  <Animated.View entering={ZoomIn.delay(index * 90 + 200)}>
-                    <View
-                      style={{
-                        backgroundColor: `${badge.color}20`,
-                        borderWidth: 1,
-                        borderColor: `${badge.color}40`,
-                        borderRadius: 8,
-                        paddingHorizontal: 8,
-                        paddingVertical: 2,
-                      }}
-                    >
-                      <Text style={{ fontSize: 9, fontWeight: "800", color: badge.color, letterSpacing: 0.8, textTransform: "uppercase" }}>
-                        {badge.label}
-                      </Text>
-                    </View>
-                  </Animated.View>
-                )}
-              </View>
-
-              {/* Category + duration */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 4 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <View
+            {/* Offer / Badge Pill */}
+            {badge && (
+              <Animated.View entering={ZoomIn.delay(index * 100 + 200)}>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 100,
+                    backgroundColor: `${catMeta.color}18`,
+                    borderWidth: 1,
+                    borderColor: `${catMeta.color}35`,
+                  }}
+                >
+                  <Animated.View
+                    style={[
+                      {
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: catMeta.color,
+                      },
+                      dotStyle,
+                    ]}
+                  />
+                  <Text
                     style={{
-                      width: 18, height: 18, borderRadius: 5,
-                      backgroundColor: `${catMeta.color}20`,
-                      borderWidth: 1, borderColor: `${catMeta.color}35`,
-                      alignItems: "center", justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: "600",
+                      color: catMeta.color,
+                      letterSpacing: 0.3,
                     }}
                   >
-                    <Ionicons name={catMeta.icon} size={10} color={catMeta.color} />
-                  </View>
-                  <Text style={{ fontSize: 11, color: catMeta.color, fontWeight: "700" }}>{plan.category}</Text>
-                </View>
-
-                <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.2)" }} />
-
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-                  <Ionicons name={planMeta.icon} size={11} color={planMeta.color} />
-                  <Text style={{ fontSize: 11, color: planMeta.color, fontWeight: "600" }}>
-                    {plan.durationInMonths
-                      ? `${plan.durationInMonths} Month${plan.durationInMonths > 1 ? "s" : ""}`
-                      : "Custom"}
+                    {badge}
                   </Text>
                 </View>
-              </View>
+              </Animated.View>
+            )}
+          </View>
+
+          {/* ── Plan Title ── */}
+          <Text
+            style={{
+              fontSize: 22,
+              fontWeight: "800",
+              color: "#fff",
+              letterSpacing: -0.5,
+              marginBottom: 4,
+            }}
+          >
+            {plan.name}
+          </Text>
+
+          {/* ── Category + Duration ── */}
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 4,
+                backgroundColor: `${catMeta.color}15`,
+                paddingHorizontal: 8,
+                paddingVertical: 3,
+                borderRadius: 6,
+              }}
+            >
+              <Ionicons name={catMeta.icon} size={10} color={catMeta.color} />
+              <Text style={{ fontSize: 10, color: catMeta.color, fontWeight: "700" }}>{plan.category}</Text>
+            </View>
+            <View style={{ width: 3, height: 3, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.2)" }} />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+              <Ionicons name={planMeta.icon} size={11} color="rgba(255,255,255,0.4)" />
+              <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontWeight: "600" }}>
+                {plan.durationInMonths
+                  ? `${plan.durationInMonths} Month${plan.durationInMonths > 1 ? "s" : ""}`
+                  : "Custom"}
+              </Text>
+            </View>
+          </View>
+
+          {/* ── Description ── */}
+          {plan.description ? (
+            <Text
+              style={{
+                fontSize: 13,
+                color: "rgba(255,255,255,0.45)",
+                lineHeight: 19,
+                marginBottom: 20,
+                maxWidth: 280,
+              }}
+            >
+              {plan.description}
+            </Text>
+          ) : null}
+
+          {/* ── Price Section ── */}
+          <View style={{ marginBottom: 22 }}>
+            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 3 }}>
+              <Text style={{ fontSize: 16, fontWeight: "600", color: "rgba(255,255,255,0.5)", marginTop: 4 }}>₹</Text>
+              <Text style={{ fontSize: 36, fontWeight: "900", color: "#fff", letterSpacing: -1.5, lineHeight: 40 }}>
+                {plan.price.toLocaleString("en-IN")}
+              </Text>
+              {pricePerMonth && plan.durationInMonths > 1 && (
+                <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", marginLeft: 2 }}>/total</Text>
+              )}
             </View>
 
-            {/* Price column */}
-            <View style={{ alignItems: "flex-end" }}>
-              <Text style={{ fontSize: 24, fontWeight: "900", color: "#fff", letterSpacing: -1 }}>
-                ₹{plan.price.toLocaleString("en-IN")}
-              </Text>
-              {pricePerMonth && (
-                <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", fontWeight: "500", marginTop: 1 }}>
-                  ₹{pricePerMonth}/mo
+            {/* Strikethrough + Discount Row */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
+              {hasDiscount && (
+                <>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      color: "rgba(255,255,255,0.3)",
+                      fontWeight: "500",
+                      textDecorationLine: "line-through",
+                    }}
+                  >
+                    ₹{plan.originalPrice.toLocaleString("en-IN")}
+                  </Text>
+                  <View
+                    style={{
+                      backgroundColor: "rgba(16,185,129,0.15)",
+                      borderWidth: 1,
+                      borderColor: "rgba(16,185,129,0.3)",
+                      borderRadius: 6,
+                      paddingHorizontal: 6,
+                      paddingVertical: 2,
+                    }}
+                  >
+                    <Text style={{ fontSize: 10, fontWeight: "800", color: "#10b981" }}>
+                      {plan.discountPercent}% OFF
+                    </Text>
+                  </View>
+                </>
+              )}
+              {pricePerMonth && plan.durationInMonths > 1 && (
+                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", fontWeight: "500" }}>
+                  ≈ ₹{pricePerMonth}/mo
                 </Text>
               )}
             </View>
           </View>
 
-          {/* ── Divider ────────────────────────────────────── */}
-          <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.05)", marginBottom: 12 }} />
-
-          {/* ── Stats Row ─────────────────────────────────── */}
-          <View style={{ flexDirection: "row", gap: 8, marginBottom: 14 }}>
-            {/* Savings chip */}
-            {savings ? (
-              <View
-                style={{
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(16,185,129,0.1)",
-                  borderWidth: 1,
-                  borderColor: "rgba(16,185,129,0.2)",
-                }}
-              >
-                <Ionicons name="pricetag-outline" size={12} color="#10b981" />
-                <Text style={{ fontSize: 11, color: "#10b981", fontWeight: "700" }}>
-                  Save {savings.pct}% (₹{savings.saved.toLocaleString("en-IN")})
-                </Text>
-              </View>
-            ) : (
-              <View
-                style={{
-                  flex: 1,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 12,
-                  backgroundColor: "rgba(255,255,255,0.04)",
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.08)",
-                }}
-              >
-                <Ionicons name="flash-outline" size={12} color="rgba(255,255,255,0.4)" />
-                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", fontWeight: "600" }}>
-                  Pay month to month
-                </Text>
-              </View>
-            )}
-
-            {/* Enrolled chip */}
-            {spotsLeft !== null && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 5,
-                  paddingHorizontal: 10,
-                  paddingVertical: 8,
-                  borderRadius: 12,
-                  backgroundColor: spotsLeft < 10 ? "rgba(248,113,113,0.12)" : "rgba(255,255,255,0.04)",
-                  borderWidth: 1,
-                  borderColor: spotsLeft < 10 ? "rgba(248,113,113,0.25)" : "rgba(255,255,255,0.08)",
-                }}
-              >
-                <Ionicons
-                  name="people-outline"
-                  size={12}
-                  color={spotsLeft < 10 ? "#f87171" : "rgba(255,255,255,0.4)"}
-                />
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: "700",
-                    color: spotsLeft < 10 ? "#f87171" : "rgba(255,255,255,0.45)",
-                  }}
-                >
-                  {plan.currentEnrolledMembers} enrolled
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* ── CTA ───────────────────────────────────────── */}
+          {/* ── CTA Button ── */}
           {plan.isActive ? (
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={() => onEnroll(plan)}
-              style={{ borderRadius: 14, overflow: "hidden" }}
+              style={{
+                borderRadius: 16,
+                overflow: "hidden",
+                marginBottom: 22,
+                shadowColor: catMeta.color,
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.4,
+                shadowRadius: 20,
+                elevation: 10,
+              }}
             >
               <LinearGradient
-                colors={catMeta.gradient}
+                colors={[catMeta.gradient[0], catMeta.gradient[1]]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={{
@@ -303,13 +362,24 @@ const PlanCard = ({ plan, index, monthlyPrice, onEnroll }) => {
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  paddingVertical: 13,
+                  paddingVertical: 15,
                 }}
               >
-                <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
-                <Text style={{ fontSize: 14, fontWeight: "800", color: "#fff", letterSpacing: 0.2 }}>
-                  Enroll Now · ₹{plan.price.toLocaleString("en-IN")}
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff", letterSpacing: 0.2 }}>
+                  Choose this plan
                 </Text>
+                <View
+                  style={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: 11,
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name="arrow-forward" size={12} color="#fff" />
+                </View>
               </LinearGradient>
             </TouchableOpacity>
           ) : (
@@ -319,19 +389,111 @@ const PlanCard = ({ plan, index, monthlyPrice, onEnroll }) => {
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                paddingVertical: 13,
-                borderRadius: 14,
+                paddingVertical: 15,
+                borderRadius: 16,
                 backgroundColor: "rgba(255,255,255,0.04)",
                 borderWidth: 1,
                 borderColor: "rgba(255,255,255,0.08)",
+                marginBottom: 22,
               }}
             >
               <Ionicons name="close-circle-outline" size={16} color="rgba(255,255,255,0.25)" />
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.3)" }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "rgba(255,255,255,0.3)" }}>
                 Currently Unavailable
               </Text>
             </View>
           )}
+
+          {/* ── Features Divider ── */}
+          {features.length > 0 && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+              <Text
+                style={{
+                  fontSize: 9,
+                  fontWeight: "600",
+                  color: "rgba(255,255,255,0.25)",
+                  letterSpacing: 1.5,
+                  textTransform: "uppercase",
+                }}
+              >
+                What's included
+              </Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+            </View>
+          )}
+
+          {/* ── Features List ── */}
+          {features.length > 0 && (
+            <View style={{ gap: 10, marginBottom: 16 }}>
+              {features.map((feat, i) => (
+                <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                  <View
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 9,
+                      backgroundColor: `${catMeta.color}12`,
+                      borderWidth: 1,
+                      borderColor: `${catMeta.color}20`,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Ionicons name="checkmark" size={14} color={catMeta.color} />
+                  </View>
+                  <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.6)", fontWeight: "400" }}>
+                    {feat}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* ── Bottom Row: Enrolled + Savings ── */}
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            {/* Enrolled badge */}
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                borderRadius: 100,
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.08)",
+                backgroundColor: "rgba(255,255,255,0.04)",
+              }}
+            >
+              <Ionicons name="people-outline" size={12} color="rgba(255,255,255,0.4)" />
+              <Text style={{ fontSize: 11, fontWeight: "500", color: "rgba(255,255,255,0.4)" }}>
+                {plan.currentEnrolledMembers || 0} enrolled
+              </Text>
+            </View>
+
+            {/* Savings pill */}
+            {savings && (
+              <View
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 100,
+                  backgroundColor: "rgba(16,185,129,0.1)",
+                  borderWidth: 1,
+                  borderColor: "rgba(16,185,129,0.2)",
+                }}
+              >
+                <Ionicons name="pricetag-outline" size={11} color="#10b981" />
+                <Text style={{ fontSize: 10, fontWeight: "700", color: "#10b981" }}>
+                  Save ₹{savings.saved.toLocaleString("en-IN")}
+                </Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </Animated.View>
@@ -403,7 +565,13 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Monthly",
     category: "Strength",
+    description: "Build raw strength with guided weight training sessions.",
+    features: ["Unlimited gym access", "Personal trainer guidance", "Diet consultation"],
     price: 1499,
+    originalPrice: 1999,
+    discountPercent: 25,
+    taxPercent: 18,
+    offerLabel: "New Member Deal",
     durationInMonths: 1,
     currentEnrolledMembers: 42,
     isActive: true,
@@ -413,7 +581,13 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Quarterly",
     category: "Strength",
+    description: "Commit to 3 months and unlock serious gains.",
+    features: ["All Monthly perks", "Free body composition analysis", "Priority scheduling", "Progress tracking"],
     price: 3999,
+    originalPrice: 5997,
+    discountPercent: 33,
+    taxPercent: 18,
+    offerLabel: "Most Popular",
     durationInMonths: 3,
     currentEnrolledMembers: 87,
     isActive: true,
@@ -423,7 +597,13 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Half-Yearly",
     category: "Cardio",
+    description: "Supercharged cardio training for endurance & fat loss.",
+    features: ["Unlimited cardio zone", "Group HIIT sessions", "Heart-rate monitoring", "Nutrition plan"],
     price: 6999,
+    originalPrice: 8994,
+    discountPercent: 22,
+    taxPercent: 18,
+    offerLabel: "Popular",
     durationInMonths: 6,
     currentEnrolledMembers: 64,
     isActive: true,
@@ -433,7 +613,13 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Yearly",
     category: "Strength",
+    description: "The ultimate commitment — unlock everything for a full year.",
+    features: ["All Quarterly perks", "1-on-1 coaching sessions", "Free merchandise", "Guest passes", "Locker included"],
     price: 11999,
+    originalPrice: 17988,
+    discountPercent: 33,
+    taxPercent: 18,
+    offerLabel: "Best Value",
     durationInMonths: 12,
     currentEnrolledMembers: 31,
     isActive: true,
@@ -443,6 +629,8 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Monthly",
     category: "Yoga",
+    description: "Find balance with daily yoga and mindfulness sessions.",
+    features: ["Unlimited yoga classes", "Meditation room access", "Flexibility assessment"],
     price: 999,
     durationInMonths: 1,
     currentEnrolledMembers: 18,
@@ -453,7 +641,12 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Quarterly",
     category: "Yoga",
+    description: "Deepen your practice over 3 transformative months.",
+    features: ["All Monthly perks", "Weekend workshops", "Personal yoga plan"],
     price: 2699,
+    originalPrice: 2997,
+    discountPercent: 10,
+    taxPercent: 18,
     durationInMonths: 3,
     currentEnrolledMembers: 9,
     isActive: true,
@@ -463,6 +656,8 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Monthly",
     category: "Cardio",
+    description: "High-energy cardio sessions to torch calories.",
+    features: ["Treadmill & cycling access", "Group classes", "Calorie tracking"],
     price: 1299,
     durationInMonths: 1,
     currentEnrolledMembers: 55,
@@ -473,6 +668,8 @@ const MOCK_PLANS = [
     gymId: "gym001",
     name: "Custom",
     category: "Strength",
+    description: "A tailored plan — contact us for details.",
+    features: ["Custom schedule", "Personalized workouts"],
     price: 4500,
     durationInMonths: 2,
     currentEnrolledMembers: 7,
