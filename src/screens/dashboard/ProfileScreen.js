@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import {
   View,
@@ -169,7 +170,6 @@ const ActivityItem = ({ icon, title, subtitle, badge, badgeColor, delay }) => (
   </Animated.View>
 );
 
-// ─── Settings Row ──────────────────────────────────────────────────────────────
 const SettingsRow = ({ icon, label, value, onPress, danger, delay }) => (
   <Animated.View entering={FadeInDown.delay(delay).springify()}>
     <TouchableOpacity
@@ -226,6 +226,7 @@ const SettingsRow = ({ icon, label, value, onPress, danger, delay }) => (
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
+  const { signOut } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -244,16 +245,13 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log Out",
         style: "destructive",
-        onPress: async () => {
-          await SecureStore.deleteItemAsync("token");
-          navigation.replace("Login");
-        },
+        onPress: () => signOut(), // clears token + flips isSignedIn → navigator auto-redirects
       },
     ]);
   };
@@ -363,7 +361,6 @@ const ProfileScreen = () => {
           </TouchableOpacity>
         </Animated.View>
 
-        {/* ── Hero Avatar Card ─────────────────────────────────────────────── */}
         <Animated.View
           entering={FadeInUp.delay(150).springify()}
           style={{ alignItems: "center", paddingTop: 20, paddingBottom: 32 }}
