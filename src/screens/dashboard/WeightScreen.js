@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import api from "../../api/axios";
+import { colors } from "../../theme";
 import {
   View,
   Text,
@@ -95,10 +96,10 @@ const calcBMI = (weightKg, heightCm) => {
 };
 
 const bmiCategory = (bmi) => {
-  if (bmi < 18.5) return { label: "Underweight", color: "#60a5fa", emoji: "🌿" };
-  if (bmi < 25)   return { label: "Healthy",     color: "#34d399", emoji: "✅" };
-  if (bmi < 30)   return { label: "Overweight",  color: "#fbbf24", emoji: "⚠️" };
-  return                  { label: "Obese",       color: "#f87171", emoji: "🔴" };
+  if (bmi < 18.5) return { label: "Underweight", color: "#60a5fa", icon: "leaf-outline" };
+  if (bmi < 25)   return { label: "Healthy",     color: "#34d399", icon: "checkmark-circle" };
+  if (bmi < 30)   return { label: "Overweight",  color: "#fbbf24", icon: "alert-circle-outline" };
+  return                  { label: "Obese",       color: "#f87171", icon: "warning-outline" };
 };
 
 const bmiPointerPercent = (bmi) => {
@@ -284,7 +285,7 @@ const BMIGauge = ({ bmi }) => {
               marginTop: 4,
             }}
           >
-            <Text style={{ fontSize: 14 }}>{cat.emoji}</Text>
+            <Ionicons name={cat.icon} size={15} color={cat.color} />
             <Text style={{ fontSize: 13, fontWeight: "700", color: cat.color }}>
               {cat.label}
             </Text>
@@ -336,12 +337,12 @@ const BMIGauge = ({ bmi }) => {
         >
           <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", lineHeight: 16 }}>
             {bmi < 18.5
-              ? "💡 Consider increasing caloric intake and strength training to build healthy muscle mass."
+              ? "Consider increasing caloric intake and strength training to build healthy muscle mass."
               : bmi < 25
-              ? "🎉 Great job! You're in the healthy BMI range. Keep maintaining your routine."
+              ? "Great job! You're in the healthy BMI range. Keep maintaining your routine."
               : bmi < 30
-              ? "💡 Focus on cardio and caloric deficit. Even a 5% weight loss improves health markers."
-              : "💡 Consult your physician for a personalized weight loss plan tailored to your needs."}
+              ? "Focus on cardio and caloric deficit. Even a 5% weight loss improves health markers."
+              : "Consult your physician for a personalized weight loss plan tailored to your needs."}
           </Text>
         </View>
       </View>
@@ -654,9 +655,9 @@ const WeightScreen = () => {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator size="large" color="#34d399" />
-        <Text style={{ color: "rgba(255,255,255,0.3)", marginTop: 12, fontSize: 13 }}>
+      <View style={{ flex: 1, backgroundColor: colors.background, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color={colors.success} />
+        <Text style={{ color: colors.textMuted, marginTop: 12, fontSize: 13 }}>
           Loading weight data...
         </Text>
       </View>
@@ -664,7 +665,7 @@ const WeightScreen = () => {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: "#09090f" }}>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle="light-content" />
 
       <LinearGradient
@@ -718,9 +719,12 @@ const WeightScreen = () => {
             <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: 2, fontWeight: "700" }}>
               My Weight
             </Text>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff", marginTop: 2 }}>
-              ⚖️ Progress Tracker
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+              <Ionicons name="scale-outline" size={18} color={colors.success} />
+              <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff" }}>
+                Progress Tracker
+              </Text>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -833,18 +837,21 @@ const WeightScreen = () => {
               <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
                 {firstWeight ?? "—"} kg (start)
               </Text>
-              <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
-                🎯 {weightGoal ? `${weightGoal} kg` : "—"} (goal)
-              </Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                <Ionicons name="flag" size={11} color="rgba(255,255,255,0.3)" />
+                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
+                  {weightGoal ? `${weightGoal} kg` : "—"} (goal)
+                </Text>
+              </View>
             </View>
 
             <View style={{ marginTop: 12, backgroundColor: "rgba(52,211,153,0.06)", borderRadius: 10, borderWidth: 1, borderColor: "rgba(52,211,153,0.12)", padding: 10 }}>
               <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 16 }}>
                 {progressToGoal >= 100
-                  ? "🎉 Goal smashed! Set a new target to keep the momentum going."
+                  ? "Goal smashed! Set a new target to keep the momentum going."
                   : isOnTrack
-                  ? `🔥 You're on track! Only ${kgLeft} kg to go. Keep it up!`
-                  : `💪 Stay consistent! Log your meals and workouts to hit your target.`}
+                  ? `You're on track! Only ${kgLeft} kg to go. Keep it up!`
+                  : `Stay consistent! Log your meals and workouts to hit your target.`}
               </Text>
             </View>
           </View>
@@ -892,7 +899,7 @@ const WeightScreen = () => {
           <View style={{ flexDirection: "row", gap: 12, marginHorizontal: 20, marginBottom: 14 }}>
             {[
               {
-                icon: "📉",
+                iconName: "trending-down-outline",
                 label: "This Week",
                 value: insightBestWeek,
                 color: "#34d399",
@@ -900,7 +907,7 @@ const WeightScreen = () => {
                 border: "rgba(52,211,153,0.18)",
               },
               {
-                icon: "🗂️",
+                iconName: "documents-outline",
                 label: "Total Logs",
                 value: insightStreak,
                 color: "#fbbf24",
@@ -908,7 +915,7 @@ const WeightScreen = () => {
                 border: "rgba(251,191,36,0.18)",
               },
               {
-                icon: "📊",
+                iconName: "stats-chart-outline",
                 label: "Avg/Week",
                 value: insightAvgWeek,
                 color: "#06b6d4",
@@ -928,7 +935,9 @@ const WeightScreen = () => {
                   alignItems: "center",
                 }}
               >
-                <Text style={{ fontSize: 20, marginBottom: 4 }}>{item.icon}</Text>
+                <View style={{ width: 36, height: 36, borderRadius: 12, backgroundColor: `${item.color}15`, alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
+                  <Ionicons name={item.iconName} size={18} color={item.color} />
+                </View>
                 <Text style={{ fontSize: 15, fontWeight: "800", color: item.color }}>{item.value}</Text>
                 <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: "600", textTransform: "uppercase", letterSpacing: 1, marginTop: 3 }}>{item.label}</Text>
               </View>
@@ -950,13 +959,15 @@ const WeightScreen = () => {
               </Text>
             </View>
             {[
-              { emoji: "🌅", tip: "Weigh yourself first thing in the morning, after using the restroom." },
-              { emoji: "💧", tip: "Drink 2L of water daily — hydration aids metabolism significantly." },
-              { emoji: "😴", tip: "Quality sleep of 7–9 hrs helps regulate hunger hormones like leptin." },
-              { emoji: "🥗", tip: "Track macros, not just calories — protein intake preserves muscle." },
+              { iconName: "sunny-outline", tip: "Weigh yourself first thing in the morning, after using the restroom.", iconColor: "#fbbf24" },
+              { iconName: "water-outline", tip: "Drink 2L of water daily — hydration aids metabolism significantly.", iconColor: "#38bdf8" },
+              { iconName: "moon-outline", tip: "Quality sleep of 7–9 hrs helps regulate hunger hormones like leptin.", iconColor: "#a78bfa" },
+              { iconName: "nutrition-outline", tip: "Track macros, not just calories — protein intake preserves muscle.", iconColor: "#34d399" },
             ].map((t, i) => (
-              <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: i < 3 ? 10 : 0 }}>
-                <Text style={{ fontSize: 16 }}>{t.emoji}</Text>
+              <View key={i} style={{ flexDirection: "row", gap: 10, marginBottom: i < 3 ? 10 : 0, alignItems: "flex-start" }}>
+                <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${t.iconColor}15`, alignItems: "center", justifyContent: "center", marginTop: 1 }}>
+                  <Ionicons name={t.iconName} size={14} color={t.iconColor} />
+                </View>
                 <Text style={{ flex: 1, fontSize: 12, color: "rgba(255,255,255,0.45)", lineHeight: 18 }}>
                   {t.tip}
                 </Text>
@@ -1013,7 +1024,7 @@ const WeightScreen = () => {
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" }}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeModal} />
           <Animated.View style={[{
-            backgroundColor: "#14141E",
+            backgroundColor: colors.surface,
             borderTopLeftRadius: 28, borderTopRightRadius: 28,
             padding: 24,
             borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
@@ -1094,10 +1105,13 @@ const WeightScreen = () => {
       {/* ── Goal Modal ───────────────────────────────────────────────────────── */}
       <Modal visible={goalModalVisible} transparent animationType="fade" onRequestClose={() => setGoalModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <View style={{ width: "100%", backgroundColor: "#14141E", borderRadius: 24, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
-            <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff", marginBottom: 4 }}>
-              🎯 Set Weight Goal
-            </Text>
+          <View style={{ width: "100%", backgroundColor: colors.surface, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+              <Ionicons name="flag" size={18} color={colors.primary} />
+              <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff" }}>
+                Set Weight Goal
+              </Text>
+            </View>
             <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginBottom: 20 }}>
               Define your target weight to track progress
             </Text>
