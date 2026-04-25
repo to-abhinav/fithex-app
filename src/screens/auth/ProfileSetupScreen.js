@@ -204,57 +204,185 @@ const ChipSelector = ({ options, selected, onSelect, activeColor }) => (
   </View>
 );
 
-// ─── Goal Card ─────────────────────────────────────────────────────────────────
-const GoalCard = ({ icon, label, value, selected, onPress, gradientColors }) => {
+// ─── Goal Tile (Premium Full-Width) ────────────────────────────────────────────
+const GoalTile = ({ icon, label, description, value, selected, onPress, gradientColors, index }) => {
   const scale = useSharedValue(1);
+  const glowOpacity = useSharedValue(0);
+  const checkScale = useSharedValue(0);
+
   useEffect(() => {
-    scale.value = withSpring(selected ? 1.03 : 1, { damping: 15, stiffness: 150 });
+    scale.value = withSpring(selected ? 1.02 : 1, { damping: 14, stiffness: 160 });
+    glowOpacity.value = withTiming(selected ? 1 : 0, { duration: 350, easing: Easing.out(Easing.ease) });
+    checkScale.value = withSpring(selected ? 1 : 0, { damping: 12, stiffness: 200 });
   }, [selected]);
-  const cardStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const glowStyle = useAnimatedStyle(() => ({
+    opacity: glowOpacity.value,
+  }));
+
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }],
+    opacity: checkScale.value,
+  }));
 
   return (
-    <TouchableOpacity
-      onPress={() => onPress(value)}
-      activeOpacity={0.8}
-      style={{ width: (SCREEN_WIDTH - 48 - 24 - 12) / 2, marginBottom: 10 }}
-    >
+    <TouchableOpacity onPress={() => onPress(value)} activeOpacity={0.85}>
       <Animated.View
+        entering={FadeInDown.delay(350 + index * 80).springify()}
         style={[
           {
-            borderRadius: 16,
-            padding: 14,
-            borderWidth: selected ? 1.5 : 1,
-            borderColor: selected ? gradientColors[0] + "80" : "rgba(255,255,255,0.07)",
-            backgroundColor: selected ? gradientColors[0] + "14" : "rgba(255,255,255,0.03)",
-            alignItems: "center",
-            gap: 8,
+            borderRadius: 18,
+            overflow: "hidden",
+            marginBottom: 10,
           },
-          cardStyle,
+          cardAnimStyle,
         ]}
       >
-        <LinearGradient
-          colors={selected ? gradientColors : ["rgba(255,255,255,0.08)", "rgba(255,255,255,0.04)"]}
+        {/* Outer glow ring on selection */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              top: -1,
+              left: -1,
+              right: -1,
+              bottom: -1,
+              borderRadius: 19,
+              borderWidth: 1.5,
+              borderColor: gradientColors[0] + "90",
+            },
+            glowStyle,
+          ]}
+          pointerEvents="none"
+        />
+
+        <View
           style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
+            flexDirection: "row",
             alignItems: "center",
-            justifyContent: "center",
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: selected ? gradientColors[0] + "50" : "rgba(255,255,255,0.06)",
+            backgroundColor: selected ? gradientColors[0] + "10" : "rgba(255,255,255,0.03)",
+            padding: 0,
+            overflow: "hidden",
           }}
         >
-          <Ionicons name={icon} size={20} color={selected ? "#fff" : "rgba(255,255,255,0.4)"} />
-        </LinearGradient>
-        <Text
-          style={{
-            fontSize: 11,
-            fontWeight: "700",
-            color: selected ? "#fff" : "rgba(255,255,255,0.35)",
-            textAlign: "center",
-            lineHeight: 16,
-          }}
-        >
-          {label}
-        </Text>
+          {/* Left gradient accent stripe */}
+          <LinearGradient
+            colors={selected ? gradientColors : ["rgba(255,255,255,0.06)", "rgba(255,255,255,0.03)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={{
+              width: 4,
+              alignSelf: "stretch",
+            }}
+          />
+
+          {/* Icon container */}
+          <View style={{ paddingLeft: 14, paddingVertical: 16 }}>
+            <LinearGradient
+              colors={selected ? gradientColors : ["rgba(255,255,255,0.07)", "rgba(255,255,255,0.03)"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: 14,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Ionicons
+                name={icon}
+                size={22}
+                color={selected ? "#fff" : "rgba(255,255,255,0.35)"}
+              />
+            </LinearGradient>
+          </View>
+
+          {/* Text content */}
+          <View style={{ flex: 1, paddingHorizontal: 14, paddingVertical: 16 }}>
+            <Text
+              style={{
+                fontSize: 14,
+                fontWeight: "700",
+                color: selected ? "#fff" : "rgba(255,255,255,0.5)",
+                letterSpacing: 0.2,
+              }}
+            >
+              {label}
+            </Text>
+            <Text
+              style={{
+                fontSize: 11,
+                fontWeight: "500",
+                color: selected ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.2)",
+                marginTop: 3,
+                lineHeight: 16,
+              }}
+            >
+              {description}
+            </Text>
+          </View>
+
+          {/* Check indicator */}
+          <View style={{ paddingRight: 16 }}>
+            <Animated.View
+              style={[
+                {
+                  width: 28,
+                  height: 28,
+                  borderRadius: 14,
+                  borderWidth: selected ? 0 : 1.5,
+                  borderColor: "rgba(255,255,255,0.1)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflow: "hidden",
+                },
+                !selected && { backgroundColor: "rgba(255,255,255,0.03)" },
+              ]}
+            >
+              {selected ? (
+                <Animated.View style={checkStyle}>
+                  <LinearGradient
+                    colors={gradientColors}
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                  </LinearGradient>
+                </Animated.View>
+              ) : null}
+            </Animated.View>
+          </View>
+        </View>
+
+        {/* Bottom glow bleed on selection */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              bottom: 0,
+              left: 20,
+              right: 20,
+              height: 1,
+              backgroundColor: gradientColors[0],
+              borderRadius: 1,
+            },
+            glowStyle,
+          ]}
+          pointerEvents="none"
+        />
       </Animated.View>
     </TouchableOpacity>
   );
@@ -267,14 +395,12 @@ const GENDER_OPTIONS = [
   { value: "other",  label: "Other",  icon: "ellipsis-horizontal-outline" },
 ];
 
-
-
 const FITNESS_GOALS = [
-  { value: "lose_weight",           label: "Lose Weight",           icon: "trending-down-outline", gradientColors: ["#f43f5e", "#e11d48"] },
-  { value: "gain_muscle",           label: "Gain Muscle",           icon: "barbell-outline",       gradientColors: ["#f59e0b", "#d97706"] },
-  { value: "maintain_fitness",      label: "Maintain Fitness",      icon: "shield-checkmark-outline",gradientColors:["#34d399","#059669"]},
-  { value: "improve_endurance",     label: "Improve Endurance",     icon: "pulse-outline",         gradientColors: ["#6366f1", "#8b5cf6"] },
-  { value: "increase_flexibility",  label: "Increase Flexibility",  icon: "body-outline",          gradientColors: ["#06b6d4", "#0891b2"] },
+  { value: "lose_weight",           label: "Lose Weight",           description: "Burn fat & get lean with structured cardio",       icon: "trending-down-outline",    gradientColors: ["#f43f5e", "#e11d48"] },
+  { value: "gain_muscle",           label: "Gain Muscle",           description: "Build strength with progressive overload",         icon: "barbell-outline",          gradientColors: ["#f59e0b", "#d97706"] },
+  { value: "maintain_fitness",      label: "Maintain Fitness",      description: "Stay in shape with balanced routines",             icon: "shield-checkmark-outline", gradientColors: ["#34d399", "#059669"] },
+  { value: "improve_endurance",     label: "Improve Endurance",     description: "Boost stamina for peak performance",               icon: "pulse-outline",            gradientColors: ["#6366f1", "#8b5cf6"] },
+  { value: "increase_flexibility",  label: "Increase Flexibility",  description: "Enhance mobility & prevent injuries",              icon: "body-outline",             gradientColors: ["#06b6d4", "#0891b2"] },
 ];
 
 // ─── Progress Steps ────────────────────────────────────────────────────────────
@@ -538,16 +664,18 @@ const ProfileSetupScreen = ({ navigation, route }) => {
                 <>
                   <Animated.View entering={FadeInDown.delay(350).springify()}>
                     <SectionLabel label="Fitness Goal" icon="trophy-outline" />
-                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
-                      {FITNESS_GOALS.map((goal) => (
-                        <GoalCard
+                    <View style={{ marginBottom: 12 }}>
+                      {FITNESS_GOALS.map((goal, idx) => (
+                        <GoalTile
                           key={goal.value}
                           icon={goal.icon}
                           label={goal.label}
+                          description={goal.description}
                           value={goal.value}
                           selected={fitnessGoal === goal.value}
                           onPress={setFitnessGoal}
                           gradientColors={goal.gradientColors}
+                          index={idx}
                         />
                       ))}
                     </View>
