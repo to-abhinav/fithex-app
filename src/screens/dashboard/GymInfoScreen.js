@@ -33,7 +33,6 @@ import Animated, {
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.25);
 
@@ -188,6 +187,103 @@ const AmenityChip = ({ name, delay }) => {
     </Animated.View>
   );
 };
+
+// ─── Equipment Chip ────────────────────────────────────────────────────────────
+const EquipmentChip = ({ name, delay }) => (
+  <Animated.View entering={FadeIn.delay(delay)}>
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 11,
+        paddingVertical: 7,
+        borderRadius: 10,
+        backgroundColor: "rgba(249,115,22,0.1)",
+        borderWidth: 1,
+        borderColor: "rgba(249,115,22,0.22)",
+        margin: 3,
+      }}
+    >
+      <Ionicons name="barbell-outline" size={12} color="#fb923c" />
+      <Text style={{ fontSize: 12, color: "#fb923c", fontWeight: "600" }}>{name}</Text>
+    </View>
+  </Animated.View>
+);
+
+const SOCIAL_META = {
+  instagram: { icon: "logo-instagram", color: "#e1306c", label: "Instagram" },
+  facebook:  { icon: "logo-facebook",  color: "#1877f2", label: "Facebook"  },
+  youtube:   { icon: "logo-youtube",   color: "#ff0000", label: "YouTube"   },
+};
+
+const SocialLinkBtn = ({ platform, url, delay }) => {
+  const meta = SOCIAL_META[platform];
+  if (!meta || !url) return null;
+  return (
+    <Animated.View entering={FadeIn.delay(delay)} style={{ flex: 1 }}>
+      <TouchableOpacity
+        activeOpacity={0.75}
+        onPress={() => Linking.openURL(url)}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 7,
+          paddingVertical: 11,
+          borderRadius: 14,
+          backgroundColor: `${meta.color}18`,
+          borderWidth: 1,
+          borderColor: `${meta.color}35`,
+        }}
+      >
+        <Ionicons name={meta.icon} size={17} color={meta.color} />
+        <Text style={{ fontSize: 12, fontWeight: "700", color: meta.color }}>
+          {meta.label}
+        </Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// ─── Policy Badge ─────────────────────────────────────────────────────────────
+const GENDER_META = {
+  "Unisex":      { icon: "people-outline",      color: "#a5b4fc", bg: "rgba(99,102,241,0.12)"  },
+  "Male Only":   { icon: "man-outline",          color: "#60a5fa", bg: "rgba(96,165,250,0.12)"  },
+  "Female Only": { icon: "woman-outline",        color: "#f472b6", bg: "rgba(244,114,182,0.12)" },
+};
+
+const PolicyBadge = ({ icon, label, value, color, bg, delay }) => (
+  <Animated.View entering={FadeIn.delay(delay)} style={{ flex: 1 }}>
+    <View
+      style={{
+        alignItems: "center",
+        paddingVertical: 14,
+        borderRadius: 16,
+        backgroundColor: bg,
+        borderWidth: 1,
+        borderColor: `${color}30`,
+        gap: 6,
+      }}
+    >
+      <View
+        style={{
+          width: 38, height: 38, borderRadius: 12,
+          backgroundColor: `${color}20`,
+          alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <Ionicons name={icon} size={18} color={color} />
+      </View>
+      <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.7 }}>
+        {label}
+      </Text>
+      <Text style={{ fontSize: 14, fontWeight: "800", color }}>
+        {value}
+      </Text>
+    </View>
+  </Animated.View>
+);
 
 // ─── Timing Row ───────────────────────────────────────────────────────────────
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -473,6 +569,20 @@ const MOCK_GYM = {
   isVerified: true,
   isFeatured: true,
   isActive: true,
+  // ── New schema fields ──────────────────────────────────────────────────────
+  socialLinks: {
+    instagram: "https://instagram.com/ironedgefitness",
+    facebook:  "https://facebook.com/ironedgefitness",
+    youtube:   "https://youtube.com/@ironedgefitness",
+  },
+  equipment: [
+    "Treadmill", "Elliptical", "Rowing Machine", "Stationary Bike",
+    "Barbell", "Dumbbells", "Kettlebells", "Pull-up Bar",
+    "Cable Machine", "Leg Press", "Smith Machine", "Battle Ropes",
+    "Boxing Bag", "Resistance Bands",
+  ],
+  genderPolicy: "Unisex",
+  minimumAge: 16,
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -629,7 +739,7 @@ const GymInfoScreen = () => {
         {/* ── Gym Identity Card ─────────────────────────────────────────────── */}
         <Animated.View
           entering={FadeInUp.delay(200).springify()}
-          style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 0 }}
+          style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 0, backgroundColor: "#09090f" }}
         >
           {/* Profile + Name row */}
           <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 14, marginBottom: 14 }}>
@@ -969,8 +1079,90 @@ const GymInfoScreen = () => {
               </Animated.View>
             )}
 
+            {/* Equipment */}
+            {gym.equipment && gym.equipment.length > 0 && (
+              <Animated.View
+                entering={FadeInDown.delay(500).springify()}
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+                  borderRadius: 20, padding: 18, marginBottom: 14,
+                }}
+              >
+                <SectionHeader icon="barbell-outline" title="Equipment" delay={500} />
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -3 }}>
+                  {gym.equipment.map((eq, i) => (
+                    <EquipmentChip key={eq} name={eq} delay={520 + i * 25} />
+                  ))}
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Gym Policies */}
+            {(gym.genderPolicy || gym.minimumAge) && (
+              <Animated.View
+                entering={FadeInDown.delay(560).springify()}
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+                  borderRadius: 20, padding: 18, marginBottom: 14,
+                }}
+              >
+                <SectionHeader icon="shield-checkmark-outline" title="Gym Policies" delay={560} />
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {gym.genderPolicy && (() => {
+                    const gm = GENDER_META[gym.genderPolicy] || GENDER_META["Unisex"];
+                    return (
+                      <PolicyBadge
+                        icon={gm.icon}
+                        label="Gender Policy"
+                        value={gym.genderPolicy}
+                        color={gm.color}
+                        bg={gm.bg}
+                        delay={580}
+                      />
+                    );
+                  })()}
+                  {gym.minimumAge && (
+                    <PolicyBadge
+                      icon="person-outline"
+                      label="Min. Age"
+                      value={`${gym.minimumAge}+ yrs`}
+                      color="#34d399"
+                      bg="rgba(16,185,129,0.1)"
+                      delay={600}
+                    />
+                  )}
+                </View>
+              </Animated.View>
+            )}
+
+            {/* Social Links */}
+            {gym.socialLinks && Object.values(gym.socialLinks).some(Boolean) && (
+              <Animated.View
+                entering={FadeInDown.delay(620).springify()}
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+                  borderRadius: 20, padding: 18, marginBottom: 14,
+                }}
+              >
+                <SectionHeader icon="share-social-outline" title="Social Media" delay={620} />
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  {Object.entries(gym.socialLinks).map(([platform, url], i) => (
+                    <SocialLinkBtn
+                      key={platform}
+                      platform={platform}
+                      url={url}
+                      delay={640 + i * 40}
+                    />
+                  ))}
+                </View>
+              </Animated.View>
+            )}
+
             {/* Membership CTA */}
-            <Animated.View entering={FadeInDown.delay(540).springify()} style={{ marginBottom: 14 }}>
+            <Animated.View entering={FadeInDown.delay(700).springify()} style={{ marginBottom: 14 }}>
               <LinearGradient
                 colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.2)", "rgba(6,182,212,0.1)"]}
                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}

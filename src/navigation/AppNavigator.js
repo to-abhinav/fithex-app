@@ -14,8 +14,27 @@ import MainTabNavigator from "./MainTabNavigator";
 
 const Stack = createNativeStackNavigator();
 
+// 🧪 TESTING FLAG — set to false to restore normal auth flow
+const TESTING = true;
+
 const AppNavigator = () => {
   const { isLoading, isSignedIn } = useAuth();
+
+  if (TESTING) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="GymInfo" component={GymInfoScreen} />
+        <Stack.Screen name="GymPlans" component={GymPlansScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen
+          name="PaymentSuccess"
+          component={PaymentSuccess}
+          options={{ gestureEnabled: false }}
+        />
+        <Stack.Screen name="Main" component={MainTabNavigator} />
+      </Stack.Navigator>
+    );
+  }
 
   if (isLoading) {
     return <AuthLoadingScreen />;
