@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import api from "../../api/axios";
 import {
   View,
   Text,
@@ -9,6 +10,8 @@ import {
   Dimensions,
   TextInput,
   Alert,
+  ActivityIndicator,
+  RefreshControl,
   Modal,
   Vibration,
   Platform,
@@ -99,7 +102,6 @@ const bmiCategory = (bmi) => {
 };
 
 const bmiPointerPercent = (bmi) => {
-  // Scale 15–40 → 0–100%
   const clamped = Math.max(15, Math.min(40, bmi));
   return ((clamped - 15) / 25) * 100;
 };
@@ -132,7 +134,6 @@ const WeightGraph = ({ entries }) => {
   const toX = (i) => PAD_LEFT + (i / (entries.length - 1)) * gW;
   const toY = (w) => PAD_TOP + gH - ((w - minW) / range) * gH;
 
-  // Build smooth path using cubic bezier
   const pts = entries.map((e, i) => ({ x: toX(i), y: toY(e.weight) }));
 
   let d = `M ${pts[0].x} ${pts[0].y}`;
@@ -143,19 +144,16 @@ const WeightGraph = ({ entries }) => {
     d += ` C ${cpx} ${prev.y} ${cpx} ${curr.y} ${curr.x} ${curr.y}`;
   }
 
-  // Area fill path
   const lastPt = pts[pts.length - 1];
   const filld =
     d +
     ` L ${lastPt.x} ${PAD_TOP + gH} L ${pts[0].x} ${PAD_TOP + gH} Z`;
 
-  // Y-axis labels
   const yLabels = [minW + 1, minW + range / 2, maxW - 1].map((w) => ({
     val: w.toFixed(1),
     y: toY(w),
   }));
 
-  // X-axis labels (first, mid, last)
   const xIdxs = [0, Math.floor((entries.length - 1) / 2), entries.length - 1];
   const xLabels = xIdxs.map((i) => ({
     label: entries[i].date,
@@ -177,7 +175,6 @@ const WeightGraph = ({ entries }) => {
         </SvgGradient>
       </Defs>
 
-      {/* Grid lines */}
       {yLabels.map((yl, i) => (
         <Line
           key={i}
@@ -191,7 +188,6 @@ const WeightGraph = ({ entries }) => {
         />
       ))}
 
-      {/* Y-axis labels */}
       {yLabels.map((yl, i) => (
         <SvgText
           key={i}
@@ -205,10 +201,8 @@ const WeightGraph = ({ entries }) => {
         </SvgText>
       ))}
 
-      {/* Area fill */}
       <Path d={filld} fill="url(#fillGrad)" />
 
-      {/* Trend line */}
       <Path
         d={d}
         fill="none"
@@ -218,7 +212,6 @@ const WeightGraph = ({ entries }) => {
         strokeLinejoin="round"
       />
 
-      {/* Data points */}
       {pts.map((p, i) => (
         <Circle
           key={i}
@@ -231,7 +224,6 @@ const WeightGraph = ({ entries }) => {
         />
       ))}
 
-      {/* X-axis labels */}
       {xLabels.map((xl, i) => (
         <SvgText
           key={i}
@@ -274,7 +266,6 @@ const BMIGauge = ({ bmi }) => {
           </Text>
         </View>
 
-        {/* Big BMI number */}
         <View style={{ alignItems: "center", marginBottom: 16 }}>
           <Text style={{ fontSize: 52, fontWeight: "900", color: cat.color, letterSpacing: -2 }}>
             {bmi}
@@ -300,7 +291,6 @@ const BMIGauge = ({ bmi }) => {
           </View>
         </View>
 
-        {/* Gauge bar */}
         <View style={{ position: "relative", height: 10, borderRadius: 6, overflow: "hidden", marginBottom: 6 }}>
           <LinearGradient
             colors={["#60a5fa", "#34d399", "#fbbf24", "#f87171"]}
@@ -308,7 +298,6 @@ const BMIGauge = ({ bmi }) => {
             end={{ x: 1, y: 0 }}
             style={{ flex: 1 }}
           />
-          {/* Pointer */}
           <View
             style={{
               position: "absolute",
@@ -327,7 +316,6 @@ const BMIGauge = ({ bmi }) => {
           />
         </View>
 
-        {/* Scale labels */}
         <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
           {["15", "18.5", "25", "30", "40"].map((l) => (
             <Text key={l} style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: "600" }}>
@@ -336,7 +324,6 @@ const BMIGauge = ({ bmi }) => {
           ))}
         </View>
 
-        {/* Tip */}
         <View
           style={{
             marginTop: 14,
@@ -451,24 +438,89 @@ const HistoryItem = ({ entry, prevWeight, onDelete, delay }) => {
 const WeightScreen = () => {
   const navigation = useNavigation();
 
-  // State
-  const [entries, setEntries] = useState([
-    { id: 1, weight: 78.5, date: "Apr 10", time: "7:02 AM" },
-    { id: 2, weight: 78.0, date: "Apr 11", time: "6:55 AM" },
-    { id: 3, weight: 77.6, date: "Apr 12", time: "7:10 AM" },
-    { id: 4, weight: 77.2, date: "Apr 13", time: "8:00 AM" },
-    { id: 5, weight: 76.8, date: "Apr 14", time: "7:30 AM" },
-    { id: 6, weight: 76.5, date: "Apr 15", time: "7:05 AM" },
-    { id: 7, weight: 76.1, date: "Apr 16", time: "7:00 AM" },
-  ]);
+  const [entries, setEntries] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
   const [goalModalVisible, setGoalModalVisible] = useState(false);
   const [inputWeight, setInputWeight] = useState("");
-  const [weightGoal, setWeightGoal] = useState(72);
-  const [goalInput, setGoalInput] = useState("72");
-  const [heightCm, setHeightCm] = useState(175);
-  const [activeFilter, setActiveFilter] = useState("1W"); // 1W, 1M, 3M, All
-  const [unit, setUnit] = useState("kg"); // kg or lbs
+  const [weightGoal, setWeightGoal] = useState(null);
+  const [goalInput, setGoalInput] = useState("");
+  const [heightCm, setHeightCm] = useState(null);
+  const [activeFilter, setActiveFilter] = useState("1W");
+  const [unit, setUnit] = useState("kg");
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  // stats shape: { currentWeight, bmi, bmiCategory, goalWeight, goalGap, weekDelta, previousWeight }
+  const [stats, setStats] = useState(null);
+  // weeklyAvg shape: [{ year, week, weekStart, avgWeight, count }, ...]
+  const [weeklyAvg, setWeeklyAvg] = useState([]);
+
+  // ── Fetch all weight data from API ──
+  const fetchData = useCallback(async (isRefresh = false) => {
+    try {
+      if (isRefresh) setRefreshing(true); else setLoading(true);
+
+      const [historyRes, latestRes, statsRes, weeklyRes] = await Promise.all([
+        api.get("/weight/mine"),
+        api.get("/weight/latest").catch(() => null),
+        api.get("/weight/stats").catch(() => null),
+        api.get("/weight/weekly-avg").catch(() => null),
+      ]);
+
+      // ── History ──────────────────────────────────────────────────────────
+      // Backend: GET /weight/mine → { count, entries: [...] }
+      const rawEntries = historyRes.data?.entries || [];
+      const logs = rawEntries.map((e) => {
+        const d = new Date(e.date || e.createdAt);
+        return {
+          id: e._id,
+          weight: e.weight,
+          bmi: e.bmi,
+          goalWeight: e.goalWeight,
+          note: e.note,
+          date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          time: d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+          rawDate: d,
+        };
+      });
+      // Sort oldest → newest for graph
+      logs.sort((a, b) => a.rawDate - b.rawDate);
+      setEntries(logs);
+
+      // ── Latest ───────────────────────────────────────────────────────────
+      // Backend: GET /weight/latest → entry object directly (no wrapper)
+      const latestData = latestRes?.data;
+      if (latestData) {
+        if (latestData.goalWeight) {
+          setWeightGoal(latestData.goalWeight);
+          setGoalInput(String(latestData.goalWeight));
+        }
+        // Back-calculate height from stored bmi + weight: h = sqrt(w / bmi) * 100
+        if (latestData.bmi && latestData.weight) {
+          const h = Math.sqrt(latestData.weight / latestData.bmi) * 100;
+          setHeightCm(Math.round(h));
+        }
+      }
+
+      // ── Stats ────────────────────────────────────────────────────────────
+      // Backend: GET /weight/stats → { currentWeight, bmi, bmiCategory, goalWeight, goalGap, weekDelta, previousWeight }
+      const sData = statsRes?.data;
+      if (sData) setStats(sData);
+
+      // ── Weekly Average ───────────────────────────────────────────────────
+      // Backend: GET /weight/weekly-avg → { weeks: [{ year, week, weekStart, avgWeight, count }] }
+      const wData = weeklyRes?.data?.weeks;
+      if (Array.isArray(wData)) setWeeklyAvg(wData);
+
+    } catch (err) {
+      console.log("Weight fetch error:", err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { fetchData(); }, [fetchData]));
 
   // Animated value for modal
   const modalScale = useSharedValue(0.85);
@@ -492,46 +544,77 @@ const WeightScreen = () => {
     opacity: modalOpacity.value,
   }));
 
-  // Derived
+  // ── Derived values ──────────────────────────────────────────────────────────
   const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight : null;
-  const firstWeight = entries.length > 0 ? entries[0].weight : null;
-  const totalChange = latestWeight != null && firstWeight != null
+  const firstWeight  = entries.length > 0 ? entries[0].weight : null;
+  const totalChange  = latestWeight != null && firstWeight != null
     ? (latestWeight - firstWeight).toFixed(1)
     : null;
-  const bmi = calcBMI(latestWeight, heightCm);
+
+  // Prefer BMI stored on the latest log entry; fall back to local calc
+  const latestEntry = entries.length > 0 ? entries[entries.length - 1] : null;
+  const apiBmi      = latestEntry?.bmi || calcBMI(latestWeight, heightCm);
 
   const progressToGoal =
-    latestWeight && firstWeight
+    latestWeight && firstWeight && weightGoal
       ? Math.min(100, Math.max(0,
           ((firstWeight - latestWeight) / (firstWeight - weightGoal)) * 100
         ))
       : 0;
 
-  // Filter entries
+  // Filter entries for the graph
   const filteredEntries = useCallback(() => {
     if (activeFilter === "All" || entries.length === 0) return entries;
     const days = activeFilter === "1W" ? 7 : activeFilter === "1M" ? 30 : 90;
     return entries.slice(-days);
   }, [entries, activeFilter])();
 
-  // Add entry
-  const addEntry = () => {
+  const kgLeft     = latestWeight && weightGoal ? Math.max(0, latestWeight - weightGoal).toFixed(1) : "—";
+  const isOnTrack  = totalChange !== null && parseFloat(totalChange) < 0;
+
+  // ── Insight values mapped from real backend fields ──────────────────────────
+  // "Best Week" → weekDelta from /weight/stats (change vs 7 days ago)
+  const insightBestWeek =
+    stats?.weekDelta != null
+      ? `${stats.weekDelta > 0 ? "+" : ""}${stats.weekDelta} kg`
+      : "—";
+
+  // "Streak" → total number of logs (backend has no streak field)
+  const insightStreak = `${entries.length} Logs`;
+
+  // "Avg/Week" → difference between the last two weekly averages
+  const insightAvgWeek = (() => {
+    if (weeklyAvg.length >= 2) {
+      const last = weeklyAvg[weeklyAvg.length - 1];
+      const prev = weeklyAvg[weeklyAvg.length - 2];
+      const diff = (last.avgWeight - prev.avgWeight).toFixed(1);
+      return `${diff > 0 ? "+" : ""}${diff} kg`;
+    }
+    // Fallback: overall change if not enough weeks
+    return totalChange ? `${totalChange} kg` : "—";
+  })();
+
+  // ── Add / Delete / Save Goal ─────────────────────────────────────────────────
+  const addEntry = async () => {
     const w = parseFloat(inputWeight);
     if (isNaN(w) || w < 20 || w > 500) {
       Alert.alert("Invalid Weight", "Please enter a valid weight between 20 and 500 kg.");
       return;
     }
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-
-    setEntries((prev) => [
-      ...prev,
-      { id: Date.now(), weight: w, date: dateStr, time: timeStr },
-    ]);
-    if (Platform.OS !== "web") Vibration.vibrate(50);
-    closeModal();
+    try {
+      setSubmitting(true);
+      const body = { weight: w };
+      if (weightGoal) body.goalWeight = weightGoal;
+      await api.post("/weight", body);
+      if (Platform.OS !== "web") Vibration.vibrate(50);
+      closeModal();
+      fetchData();
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message;
+      Alert.alert("Error", msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const deleteEntry = (id) => {
@@ -540,41 +623,72 @@ const WeightScreen = () => {
       {
         text: "Delete",
         style: "destructive",
-        onPress: () => setEntries((prev) => prev.filter((e) => e.id !== id)),
+        onPress: async () => {
+          try {
+            await api.delete(`/weight/${id}`);
+            fetchData();
+          } catch (err) {
+            Alert.alert("Error", err.response?.data?.message || "Failed to delete");
+          }
+        },
       },
     ]);
   };
 
-  const saveGoal = () => {
+  const saveGoal = async () => {
     const g = parseFloat(goalInput);
     if (isNaN(g) || g < 20 || g > 400) {
       Alert.alert("Invalid Goal", "Enter a realistic weight goal.");
       return;
     }
+    // Re-log current weight with updated goalWeight so the backend persists it
+    if (latestWeight) {
+      try {
+        await api.post("/weight", { weight: latestWeight, goalWeight: g });
+      } catch (_) { /* ignore */ }
+    }
     setWeightGoal(g);
     setGoalModalVisible(false);
+    fetchData();
   };
 
-  const kgLeft = latestWeight ? Math.max(0, latestWeight - weightGoal).toFixed(1) : "—";
-  const isOnTrack = totalChange !== null && parseFloat(totalChange) < 0;
+  if (loading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" color="#34d399" />
+        <Text style={{ color: "rgba(255,255,255,0.3)", marginTop: 12, fontSize: 13 }}>
+          Loading weight data...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
       <StatusBar barStyle="light-content" />
 
-      {/* Background gradient */}
       <LinearGradient
         colors={["rgba(52,211,153,0.22)", "rgba(6,182,212,0.10)", "rgba(0,0,0,0)"]}
         locations={[0, 0.45, 1]}
         style={{ position: "absolute", top: 0, left: 0, right: 0, height: 360 }}
       />
 
-      {/* Glow orbs */}
       <GlowOrb size={280} color="rgba(52,211,153,0.12)" top={-60} left={SCREEN_WIDTH / 2 - 140} delay={0} />
       <GlowOrb size={200} color="rgba(6,182,212,0.08)"  top={300} left={-60} delay={1000} />
       <GlowOrb size={160} color="rgba(99,102,241,0.07)" top={600} left={SCREEN_WIDTH - 100} delay={2000} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 56 }}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 56 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => fetchData(true)}
+            tintColor="#34d399"
+            colors={["#34d399"]}
+          />
+        }
+      >
         {/* ── Top Bar ──────────────────────────────────────────────────────── */}
         <Animated.View
           entering={FadeInDown.delay(0).duration(600)}
@@ -590,14 +704,10 @@ const WeightScreen = () => {
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
+              width: 38, height: 38, borderRadius: 19,
               backgroundColor: "rgba(255,255,255,0.06)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.1)",
-              alignItems: "center",
-              justifyContent: "center",
+              borderWidth: 1, borderColor: "rgba(255,255,255,0.1)",
+              alignItems: "center", justifyContent: "center",
             }}
             activeOpacity={0.7}
           >
@@ -615,14 +725,10 @@ const WeightScreen = () => {
 
           <TouchableOpacity
             style={{
-              width: 38,
-              height: 38,
-              borderRadius: 19,
+              width: 38, height: 38, borderRadius: 19,
               backgroundColor: "rgba(52,211,153,0.12)",
-              borderWidth: 1,
-              borderColor: "rgba(52,211,153,0.25)",
-              alignItems: "center",
-              justifyContent: "center",
+              borderWidth: 1, borderColor: "rgba(52,211,153,0.25)",
+              alignItems: "center", justifyContent: "center",
             }}
             activeOpacity={0.7}
             onPress={() => setGoalModalVisible(true)}
@@ -635,14 +741,8 @@ const WeightScreen = () => {
         <Animated.View entering={FadeInUp.delay(150).springify()} style={{ marginHorizontal: 20, marginTop: 12, marginBottom: 14 }}>
           <LinearGradient
             colors={["rgba(52,211,153,0.22)", "rgba(6,182,212,0.15)", "rgba(99,102,241,0.12)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 24,
-              padding: 20,
-              borderWidth: 1,
-              borderColor: "rgba(52,211,153,0.25)",
-            }}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ borderRadius: 24, padding: 20, borderWidth: 1, borderColor: "rgba(52,211,153,0.25)" }}
           >
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
               <View>
@@ -671,25 +771,11 @@ const WeightScreen = () => {
                 )}
               </View>
 
-              <TouchableOpacity
-                onPress={openModal}
-                activeOpacity={0.85}
-                style={{
-                  borderRadius: 18,
-                  overflow: "hidden",
-                }}
-              >
+              <TouchableOpacity onPress={openModal} activeOpacity={0.85} style={{ borderRadius: 18, overflow: "hidden" }}>
                 <LinearGradient
                   colors={["#34d399", "#06b6d4"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{
-                    paddingHorizontal: 18,
-                    paddingVertical: 12,
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+                  style={{ paddingHorizontal: 18, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 6 }}
                 >
                   <Ionicons name="add" size={18} color="#fff" />
                   <Text style={{ fontSize: 13, fontWeight: "800", color: "#fff" }}>Log Weight</Text>
@@ -699,11 +785,10 @@ const WeightScreen = () => {
 
             <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.08)", marginVertical: 16 }} />
 
-            {/* Mini stats row */}
             <View style={{ flexDirection: "row", gap: 0 }}>
               {[
-                { label: "Start", value: firstWeight ? `${firstWeight} kg` : "—", color: "rgba(255,255,255,0.5)" },
-                { label: "Goal",  value: `${weightGoal} kg`,                       color: "#a5b4fc" },
+                { label: "Start", value: firstWeight  ? `${firstWeight} kg`  : "—", color: "rgba(255,255,255,0.5)" },
+                { label: "Goal",  value: weightGoal   ? `${weightGoal} kg`   : "—", color: "#a5b4fc" },
                 { label: "Left",  value: `${kgLeft} kg`,                           color: "#fbbf24" },
                 { label: "Logs",  value: `${entries.length}`,                      color: "#34d399" },
               ].map((s, i) => (
@@ -718,15 +803,7 @@ const WeightScreen = () => {
 
         {/* ── Goal Progress Bar ─────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(280).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.03)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.07)",
-              borderRadius: 20,
-              padding: 18,
-            }}
-          >
+          <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", borderRadius: 20, padding: 18 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="flag-outline" size={16} color="#a5b4fc" />
@@ -744,12 +821,10 @@ const WeightScreen = () => {
               </View>
             </View>
 
-            {/* Progress bar */}
             <View style={{ height: 8, backgroundColor: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden", marginBottom: 10 }}>
               <LinearGradient
                 colors={["#34d399", "#06b6d4"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={{ width: `${progressToGoal}%`, height: "100%", borderRadius: 4 }}
               />
             </View>
@@ -759,11 +834,10 @@ const WeightScreen = () => {
                 {firstWeight ?? "—"} kg (start)
               </Text>
               <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
-                🎯 {weightGoal} kg (goal)
+                🎯 {weightGoal ? `${weightGoal} kg` : "—"} (goal)
               </Text>
             </View>
 
-            {/* Motivational text */}
             <View style={{ marginTop: 12, backgroundColor: "rgba(52,211,153,0.06)", borderRadius: 10, borderWidth: 1, borderColor: "rgba(52,211,153,0.12)", padding: 10 }}>
               <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", lineHeight: 16 }}>
                 {progressToGoal >= 100
@@ -778,15 +852,7 @@ const WeightScreen = () => {
 
         {/* ── Trend Graph ──────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(330).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.03)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.07)",
-              borderRadius: 20,
-              padding: 18,
-            }}
-          >
+          <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", borderRadius: 20, padding: 18 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="analytics-outline" size={16} color="#a5b4fc" />
@@ -795,34 +861,18 @@ const WeightScreen = () => {
                 </Text>
               </View>
 
-              {/* Filter tabs */}
-              <View
-                style={{
-                  flexDirection: "row",
-                  backgroundColor: "rgba(255,255,255,0.05)",
-                  borderRadius: 10,
-                  padding: 2,
-                }}
-              >
+              <View style={{ flexDirection: "row", backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 10, padding: 2 }}>
                 {["1W", "1M", "3M", "All"].map((f) => (
                   <TouchableOpacity
                     key={f}
                     onPress={() => setActiveFilter(f)}
                     activeOpacity={0.7}
                     style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 8,
+                      paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8,
                       backgroundColor: activeFilter === f ? "rgba(99,102,241,0.35)" : "transparent",
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: "700",
-                        color: activeFilter === f ? "#a5b4fc" : "rgba(255,255,255,0.3)",
-                      }}
-                    >
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: activeFilter === f ? "#a5b4fc" : "rgba(255,255,255,0.3)" }}>
                       {f}
                     </Text>
                   </TouchableOpacity>
@@ -835,7 +885,7 @@ const WeightScreen = () => {
         </Animated.View>
 
         {/* ── BMI Card ─────────────────────────────────────────────────────── */}
-        <BMIGauge bmi={bmi} />
+        <BMIGauge bmi={apiBmi} />
 
         {/* ── Insights Row ─────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(450).springify()}>
@@ -843,16 +893,16 @@ const WeightScreen = () => {
             {[
               {
                 icon: "📉",
-                label: "Best Week",
-                value: "-1.8 kg",
+                label: "This Week",
+                value: insightBestWeek,
                 color: "#34d399",
                 bg: "rgba(52,211,153,0.08)",
                 border: "rgba(52,211,153,0.18)",
               },
               {
-                icon: "🔥",
-                label: "Streak",
-                value: "7 Days",
+                icon: "🗂️",
+                label: "Total Logs",
+                value: insightStreak,
                 color: "#fbbf24",
                 bg: "rgba(251,191,36,0.08)",
                 border: "rgba(251,191,36,0.18)",
@@ -860,7 +910,7 @@ const WeightScreen = () => {
               {
                 icon: "📊",
                 label: "Avg/Week",
-                value: "-0.6 kg",
+                value: insightAvgWeek,
                 color: "#06b6d4",
                 bg: "rgba(6,182,212,0.08)",
                 border: "rgba(6,182,212,0.18)",
@@ -890,14 +940,8 @@ const WeightScreen = () => {
         <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <LinearGradient
             colors={["rgba(99,102,241,0.18)", "rgba(139,92,246,0.12)"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderRadius: 20,
-              padding: 18,
-              borderWidth: 1,
-              borderColor: "rgba(99,102,241,0.25)",
-            }}
+            start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+            style={{ borderRadius: 20, padding: 18, borderWidth: 1, borderColor: "rgba(99,102,241,0.25)" }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <Ionicons name="bulb-outline" size={16} color="#a5b4fc" />
@@ -923,15 +967,7 @@ const WeightScreen = () => {
 
         {/* ── Weight History ────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(560).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.03)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.07)",
-              borderRadius: 20,
-              padding: 18,
-            }}
-          >
+          <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", borderRadius: 20, padding: 18 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <Ionicons name="time-outline" size={16} color="#a5b4fc" />
@@ -945,6 +981,8 @@ const WeightScreen = () => {
             </View>
 
             {[...entries].reverse().map((entry, i) => {
+              // entries is sorted oldest→newest; reversed → newest first.
+              // prevWeight for diff = the entry one slot newer in reversed = entries[length-1-i-1] in original
               const prevIdx = entries.length - 1 - i - 1;
               const prevWeight = prevIdx >= 0 ? entries[prevIdx].weight : null;
               return (
@@ -974,8 +1012,12 @@ const WeightScreen = () => {
       <Modal visible={modalVisible} transparent animationType="none" onRequestClose={closeModal}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "flex-end" }}>
           <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeModal} />
-          <Animated.View style={[{ backgroundColor: "#14141E", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }, modalAnimStyle]}>
-            {/* Handle */}
+          <Animated.View style={[{
+            backgroundColor: "#14141E",
+            borderTopLeftRadius: 28, borderTopRightRadius: 28,
+            padding: 24,
+            borderWidth: 1, borderColor: "rgba(255,255,255,0.08)",
+          }, modalAnimStyle]}>
             <View style={{ width: 40, height: 4, backgroundColor: "rgba(255,255,255,0.1)", borderRadius: 2, alignSelf: "center", marginBottom: 20 }} />
 
             <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff", marginBottom: 4 }}>
@@ -985,19 +1027,12 @@ const WeightScreen = () => {
               {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
             </Text>
 
-            {/* Input */}
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderWidth: 1,
-                borderColor: "rgba(99,102,241,0.35)",
-                borderRadius: 16,
-                paddingHorizontal: 18,
-                marginBottom: 20,
-              }}
-            >
+            <View style={{
+              flexDirection: "row", alignItems: "center",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              borderWidth: 1, borderColor: "rgba(99,102,241,0.35)",
+              borderRadius: 16, paddingHorizontal: 18, marginBottom: 20,
+            }}>
               <Ionicons name="scale-outline" size={20} color="rgba(165,180,252,0.7)" />
               <TextInput
                 value={inputWeight}
@@ -1006,20 +1041,14 @@ const WeightScreen = () => {
                 placeholderTextColor="rgba(255,255,255,0.2)"
                 keyboardType="decimal-pad"
                 style={{
-                  flex: 1,
-                  fontSize: 28,
-                  fontWeight: "800",
-                  color: "#fff",
-                  paddingVertical: 16,
-                  paddingHorizontal: 12,
-                  letterSpacing: -0.5,
+                  flex: 1, fontSize: 28, fontWeight: "800", color: "#fff",
+                  paddingVertical: 16, paddingHorizontal: 12, letterSpacing: -0.5,
                 }}
                 autoFocus
               />
               <Text style={{ fontSize: 16, fontWeight: "700", color: "rgba(255,255,255,0.4)" }}>kg</Text>
             </View>
 
-            {/* Quick fill buttons */}
             {latestWeight && (
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>
                 {[latestWeight - 0.5, latestWeight, latestWeight + 0.5].map((v) => (
@@ -1028,12 +1057,9 @@ const WeightScreen = () => {
                     onPress={() => setInputWeight(v.toFixed(1))}
                     activeOpacity={0.7}
                     style={{
-                      flex: 1,
-                      paddingVertical: 10,
-                      borderRadius: 12,
+                      flex: 1, paddingVertical: 10, borderRadius: 12,
                       backgroundColor: "rgba(99,102,241,0.1)",
-                      borderWidth: 1,
-                      borderColor: "rgba(99,102,241,0.2)",
+                      borderWidth: 1, borderColor: "rgba(99,102,241,0.2)",
                       alignItems: "center",
                     }}
                   >
@@ -1043,15 +1069,20 @@ const WeightScreen = () => {
               </View>
             )}
 
-            <TouchableOpacity onPress={addEntry} activeOpacity={0.85} style={{ borderRadius: 16, overflow: "hidden" }}>
+            <TouchableOpacity onPress={addEntry} activeOpacity={0.85} disabled={submitting} style={{ borderRadius: 16, overflow: "hidden", opacity: submitting ? 0.6 : 1 }}>
               <LinearGradient
                 colors={["#34d399", "#06b6d4"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                 style={{ paddingVertical: 16, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
               >
-                <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                <Text style={{ fontSize: 15, fontWeight: "800", color: "#fff" }}>Save Entry</Text>
+                {submitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    <Text style={{ fontSize: 15, fontWeight: "800", color: "#fff" }}>Save Entry</Text>
+                  </>
+                )}
               </LinearGradient>
             </TouchableOpacity>
 
@@ -1063,16 +1094,7 @@ const WeightScreen = () => {
       {/* ── Goal Modal ───────────────────────────────────────────────────────── */}
       <Modal visible={goalModalVisible} transparent animationType="fade" onRequestClose={() => setGoalModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.65)", justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <View
-            style={{
-              width: "100%",
-              backgroundColor: "#14141E",
-              borderRadius: 24,
-              padding: 24,
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.08)",
-            }}
-          >
+          <View style={{ width: "100%", backgroundColor: "#14141E", borderRadius: 24, padding: 24, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" }}>
             <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff", marginBottom: 4 }}>
               🎯 Set Weight Goal
             </Text>
@@ -1080,18 +1102,12 @@ const WeightScreen = () => {
               Define your target weight to track progress
             </Text>
 
-            <View
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: "rgba(255,255,255,0.05)",
-                borderWidth: 1,
-                borderColor: "rgba(99,102,241,0.35)",
-                borderRadius: 16,
-                paddingHorizontal: 18,
-                marginBottom: 20,
-              }}
-            >
+            <View style={{
+              flexDirection: "row", alignItems: "center",
+              backgroundColor: "rgba(255,255,255,0.05)",
+              borderWidth: 1, borderColor: "rgba(99,102,241,0.35)",
+              borderRadius: 16, paddingHorizontal: 18, marginBottom: 20,
+            }}>
               <Ionicons name="flag-outline" size={18} color="rgba(165,180,252,0.7)" />
               <TextInput
                 value={goalInput}
@@ -1099,14 +1115,7 @@ const WeightScreen = () => {
                 placeholder="Target weight"
                 placeholderTextColor="rgba(255,255,255,0.2)"
                 keyboardType="decimal-pad"
-                style={{
-                  flex: 1,
-                  fontSize: 24,
-                  fontWeight: "800",
-                  color: "#fff",
-                  paddingVertical: 14,
-                  paddingHorizontal: 12,
-                }}
+                style={{ flex: 1, fontSize: 24, fontWeight: "800", color: "#fff", paddingVertical: 14, paddingHorizontal: 12 }}
               />
               <Text style={{ fontSize: 16, fontWeight: "700", color: "rgba(255,255,255,0.4)" }}>kg</Text>
             </View>
@@ -1115,14 +1124,7 @@ const WeightScreen = () => {
               <TouchableOpacity
                 onPress={() => setGoalModalVisible(false)}
                 activeOpacity={0.7}
-                style={{
-                  flex: 1,
-                  paddingVertical: 14,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: "rgba(255,255,255,0.1)",
-                  alignItems: "center",
-                }}
+                style={{ flex: 1, paddingVertical: 14, borderRadius: 14, borderWidth: 1, borderColor: "rgba(255,255,255,0.1)", alignItems: "center" }}
               >
                 <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.5)" }}>Cancel</Text>
               </TouchableOpacity>
@@ -1130,8 +1132,7 @@ const WeightScreen = () => {
               <TouchableOpacity onPress={saveGoal} activeOpacity={0.85} style={{ flex: 1, borderRadius: 14, overflow: "hidden" }}>
                 <LinearGradient
                   colors={["#6366f1", "#8b5cf6"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                   style={{ paddingVertical: 14, alignItems: "center" }}
                 >
                   <Text style={{ fontSize: 14, fontWeight: "800", color: "#fff" }}>Save Goal</Text>
