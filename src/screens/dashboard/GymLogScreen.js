@@ -1075,6 +1075,67 @@ const LogRow = ({ log, delay }) => (
   </Animated.View>
 );
 
+// ─── Hero Card Skeleton ──────────────────────────────────────────────────────
+const SkeletonBlock = ({ width, height, borderRadius = 8, style }) => {
+  const shimmer = useSharedValue(0);
+  useEffect(() => {
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 1200, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true
+    );
+  }, []);
+  const animStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(shimmer.value, [0, 1], [0.25, 0.55]),
+  }));
+  return (
+    <Animated.View
+      style={[
+        {
+          width,
+          height,
+          borderRadius,
+          backgroundColor: "rgba(255,255,255,0.08)",
+        },
+        animStyle,
+        style,
+      ]}
+    />
+  );
+};
+
+const HeroCardSkeleton = () => (
+  <Animated.View
+    entering={FadeIn.duration(300)}
+    style={{ marginHorizontal: 20, marginTop: 16, marginBottom: 16 }}
+  >
+    <View
+      style={{
+        borderRadius: 26,
+        padding: 22,
+        borderWidth: 1,
+        borderColor: "rgba(249,115,22,0.15)",
+        backgroundColor: "rgba(249,115,22,0.06)",
+      }}
+    >
+      {/* Status label skeleton */}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 18 }}>
+        <SkeletonBlock width={8} height={8} borderRadius={4} />
+        <SkeletonBlock width={110} height={12} borderRadius={6} />
+      </View>
+
+      {/* Timer skeleton */}
+      <View style={{ alignItems: "center", marginBottom: 20 }}>
+        <SkeletonBlock width={180} height={50} borderRadius={12} />
+        <SkeletonBlock width={120} height={12} borderRadius={6} style={{ marginTop: 10 }} />
+      </View>
+
+      {/* Button skeleton */}
+      <SkeletonBlock width="100%" height={52} borderRadius={18} />
+    </View>
+  </Animated.View>
+);
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 const GymLogScreen = () => {
   const navigation = useNavigation();
@@ -1086,6 +1147,7 @@ const GymLogScreen = () => {
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [qrMode, setQrMode] = useState("entry"); // "entry" only now
   const [streakData] = useState(STREAK_DATA);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
 
   // New states for the 3 features
   const [isPendingSync, setIsPendingSync] = useState(false);
@@ -1148,9 +1210,9 @@ const GymLogScreen = () => {
     })();
   }, []);
 
-  // ─── Offline sync: check for pending check-in on mount ───────────────────
   useEffect(() => {
     (async () => {
+      // 1. Check for a pending offline check-in first
       const pending = await getPendingCheckIn();
       if (pending) {
         setIsPendingSync(true);
@@ -1159,9 +1221,30 @@ const GymLogScreen = () => {
         const elapsed = Math.floor((Date.now() - new Date(pending.createdAt).getTime()) / 1000);
         setElapsedSeconds(elapsed);
         startSyncRetry();
+        setIsLoadingStatus(false);
+        return; // Already handled — skip backend check
+      }
+
+      // 2. No pending offline entry — check backend for an active session
+      try {
+        const status = await gymLogService.getMyStatus();
+        if (status?.isInsideGym && status?.checkInTime) {
+          const entry = new Date(status.checkInTime);
+          setIsInsideGym(true);
+          setEntryTime(entry);
+          const elapsed = Math.floor((Date.now() - entry.getTime()) / 1000);
+          setElapsedSeconds(elapsed > 0 ? elapsed : 0);
+        }
+      } catch (err) {
+        console.log("[GymLog] Failed to fetch session status:", err.message);
+      } finally {
+        setIsLoadingStatus(false);
       }
     })();
+
+    // Master cleanup on unmount
     return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
       if (syncIntervalRef.current) clearInterval(syncIntervalRef.current);
     };
   }, []);
@@ -1312,10 +1395,12 @@ const GymLogScreen = () => {
     if (!entryTime) return;
     setIsExitProcessing(true);
 
+    let checkoutData;
     try {
       console.log("[GymLog] 📤 Calling checkout API…");
       const res = await gymLogService.checkOut();
-      console.log("[GymLog] ✅ Checkout API success:", res?.data ?? res?.status);
+      checkoutData = res.data;
+      console.log("[GymLog] ✅ Checkout API success:", checkoutData);
     } catch (err) {
       console.log("[GymLog] ❌ Checkout API error:", err.message, err.response?.data);
       setIsExitProcessing(false);
@@ -1327,14 +1412,16 @@ const GymLogScreen = () => {
       return; // Keep the user checked-in so they can retry
     }
 
-    const now = new Date();
-    const durationMin = Math.floor((now - entryTime) / 60000);
-    const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-    const entryStr = entryTime.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
-    const exitStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    // Use authoritative data from backend response
+    const { durationMinutes, session } = checkoutData;
+    const checkInDate = new Date(session.checkInTime);
+    const checkOutDate = new Date(session.checkOutTime);
+    const dateStr = checkOutDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const entryStr = checkInDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    const exitStr = checkOutDate.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 
     setLogs((prev) => [
-      { id: Date.now(), date: dateStr, entryTime: entryStr, exitTime: exitStr, duration: durationMin > 0 ? durationMin : 1 },
+      { id: Date.now(), date: dateStr, entryTime: entryStr, exitTime: exitStr, duration: durationMinutes > 0 ? durationMinutes : 1 },
       ...prev,
     ]);
     setIsInsideGym(false);
@@ -1429,6 +1516,9 @@ const GymLogScreen = () => {
         </Animated.View>
 
         {/* ── Entry / Exit Hero Card ─────────────────────────────────────────── */}
+        {isLoadingStatus ? (
+          <HeroCardSkeleton />
+        ) : (
         <Animated.View
           entering={FadeInUp.delay(150).springify()}
           style={{ marginHorizontal: 20, marginTop: 16, marginBottom: 16 }}
@@ -1598,6 +1688,7 @@ const GymLogScreen = () => {
             </View>
           </LinearGradient>
         </Animated.View>
+        )}
 
         {/* ── Streak Summary Stats ─────────────────────────────────────────────── */}
         <Animated.View
