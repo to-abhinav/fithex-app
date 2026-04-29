@@ -888,7 +888,6 @@ const ArcGauge = ({ pct }) => {
 
 
 
-// ─── Haversine distance (meters) ─────────────────────────────────────────────
 const haversineDistance = (lat1, lon1, lat2, lon2) => {
   const toRad = (v) => (v * Math.PI) / 180;
   const R = 6371000; // Earth radius in meters
@@ -1313,6 +1312,21 @@ const GymLogScreen = () => {
     if (!entryTime) return;
     setIsExitProcessing(true);
 
+    try {
+      console.log("[GymLog] 📤 Calling checkout API…");
+      const res = await gymLogService.checkOut();
+      console.log("[GymLog] ✅ Checkout API success:", res?.data ?? res?.status);
+    } catch (err) {
+      console.log("[GymLog] ❌ Checkout API error:", err.message, err.response?.data);
+      setIsExitProcessing(false);
+      Alert.alert(
+        "Checkout Failed",
+        err.response?.data?.message || "Could not reach the server. Please try again.",
+        [{ text: "OK" }]
+      );
+      return; // Keep the user checked-in so they can retry
+    }
+
     const now = new Date();
     const durationMin = Math.floor((now - entryTime) / 60000);
     const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric" });
@@ -1332,13 +1346,6 @@ const GymLogScreen = () => {
       syncIntervalRef.current = null;
     }
     await clearPendingCheckIn();
-
-    try {
-      await gymLogService.checkOut();
-    } catch (err) {
-      console.log("[GymLog] Checkout API error:", err.message);
-      Alert.alert("Checkout Note", "Session saved locally. Sync may complete later.");
-    }
     setIsExitProcessing(false);
   };
 
