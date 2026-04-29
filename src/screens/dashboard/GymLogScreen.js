@@ -31,9 +31,6 @@ import Animated, {
   FadeIn,
   Easing,
   interpolate,
-  cancelAnimation,
-  runOnJS,
-  useAnimatedProps,
 } from "react-native-reanimated";
 import Svg, {
   Path,
@@ -899,128 +896,187 @@ const haversineDistance = (lat1, lon1, lat2, lon2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const HOLD_DURATION = 3000; // ms
-const CIRCLE_SIZE = 54;
-const CIRCLE_R = 24;
-const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * CIRCLE_R;
+const SWIPE_TRACK_H = 56;
+const SWIPE_THUMB_SIZE = 48;
+const SWIPE_THRESHOLD = 0.78; // 78% of track to trigger exit
 
-const HoldToExitButton = ({ onExitComplete, disabled }) => {
-  const progress = useSharedValue(0);
-  const [holding, setHolding] = useState(false);
-  const holdTimer = useRef(null);
-  const startTs = useRef(0);
+const SwipeToExitButton = ({ onExitComplete, disabled }) => {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const translateX = useSharedValue(0);
+  const triggered = useRef(false);
+  const maxSlide = trackWidth - SWIPE_THUMB_SIZE - 8; // 4px padding each side
 
-  const animatedCircleProps = useAnimatedProps(() => {
-    const offset = CIRCLE_CIRCUMFERENCE * (1 - progress.value);
-    return { strokeDashoffset: offset };
-  });
-
-  const handlePressIn = () => {
-    if (disabled) return;
-    setHolding(true);
-    startTs.current = Date.now();
-    progress.value = withTiming(1, { duration: HOLD_DURATION, easing: Easing.linear });
-
-    holdTimer.current = setTimeout(() => {
-      if (Platform.OS !== "web") Vibration.vibrate([0, 80, 60, 80]);
-      setHolding(false);
-      progress.value = 0;
-      onExitComplete();
-    }, HOLD_DURATION);
-  };
-
-  const handlePressOut = () => {
-    if (holdTimer.current) {
-      clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-    }
-    setHolding(false);
-    cancelAnimation(progress);
-    progress.value = withTiming(0, { duration: 200 });
-  };
-
+  const shimmer = useSharedValue(0);
   useEffect(() => {
-    return () => {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-    };
+    shimmer.value = withRepeat(
+      withTiming(1, { duration: 2000, easing: Easing.linear }),
+      -1,
+      false
+    );
   }, []);
 
+  const panResponder = useRef(
+    null
+  );
+
+  // Rebuild PanResponder whenever trackWidth or disabled changes
+  useEffect(() => {
+    const _maxSlide = trackWidth - SWIPE_THUMB_SIZE - 8;
+    panResponder.current = require("react-native").PanResponder.create({
+      onStartShouldSetPanResponder: () => !disabled && _maxSlide > 0,
+      onMoveShouldSetPanResponder: (_, gs) => !disabled && Math.abs(gs.dx) > 5,
+      onPanResponderGrant: () => {
+        triggered.current = false;
+      },
+      onPanResponderMove: (_, gs) => {
+        if (triggered.current) return;
+        const clamped = Math.max(0, Math.min(gs.dx, _maxSlide));
+        translateX.value = clamped;
+      },
+      onPanResponderRelease: (_, gs) => {
+        if (triggered.current) return;
+        const clamped = Math.max(0, Math.min(gs.dx, _maxSlide));
+        const pct = _maxSlide > 0 ? clamped / _maxSlide : 0;
+        if (pct >= SWIPE_THRESHOLD) {
+          // Snap to end and trigger
+          triggered.current = true;
+          translateX.value = withTiming(_maxSlide, { duration: 120 });
+          if (Platform.OS !== "web") Vibration.vibrate([0, 40, 30, 40]);
+          // Small delay so animation completes
+          setTimeout(() => {
+            onExitComplete();
+            // Reset after exit completes
+            setTimeout(() => {
+              translateX.value = withTiming(0, { duration: 300 });
+              triggered.current = false;
+            }, 400);
+          }, 150);
+        } else {
+          // Snap back
+          translateX.value = withSpring(0, { damping: 18, stiffness: 200 });
+        }
+      },
+      onPanResponderTerminate: () => {
+        if (!triggered.current) {
+          translateX.value = withSpring(0, { damping: 18, stiffness: 200 });
+        }
+      },
+    });
+  }, [trackWidth, disabled]);
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: translateX.value + SWIPE_THUMB_SIZE + 4,
+  }));
+
+  const textOpacity = useAnimatedStyle(() => {
+    const mxSlide = trackWidth - SWIPE_THUMB_SIZE - 8;
+    return {
+      opacity: mxSlide > 0
+        ? interpolate(translateX.value, [0, mxSlide * 0.5], [1, 0], 'clamp')
+        : 1,
+    };
+  });
+
+  const arrowShimmer = useAnimatedStyle(() => ({
+    opacity: interpolate(shimmer.value, [0, 0.5, 1], [0.3, 0.8, 0.3]),
+  }));
+
+  if (!panResponder.current) return null;
+
   return (
-    <View style={{ flex: 1, alignItems: "center" }}>
-      <TouchableOpacity
-        activeOpacity={0.9}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={disabled}
+    <View style={{ flex: 1 }}>
+      <View
+        onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
         style={{
           width: "100%",
-          borderRadius: 18,
+          height: SWIPE_TRACK_H,
+          borderRadius: SWIPE_TRACK_H / 2,
+          backgroundColor: "rgba(239,68,68,0.15)",
+          borderWidth: 1,
+          borderColor: "rgba(239,68,68,0.35)",
           overflow: "hidden",
+          justifyContent: "center",
           position: "relative",
         }}
       >
-        {/* Background gradient */}
-        <LinearGradient
-          colors={
-            holding
-              ? ["rgba(239,68,68,1)", "rgba(185,28,28,1)"]
-              : ["rgba(239,68,68,0.8)", "rgba(185,28,28,0.9)"]
-          }
-          style={{
-            paddingVertical: 16,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 8,
-          }}
+        {/* Red fill that follows the thumb */}
+        <Animated.View
+          style={[
+            {
+              position: "absolute",
+              left: 0,
+              top: 0,
+              bottom: 0,
+              borderRadius: SWIPE_TRACK_H / 2,
+              overflow: "hidden",
+            },
+            fillStyle,
+          ]}
         >
-          {/* Circular progress ring */}
-          <View style={{ width: CIRCLE_SIZE, height: CIRCLE_SIZE, position: "relative", alignItems: "center", justifyContent: "center" }}>
-            <Svg width={CIRCLE_SIZE} height={CIRCLE_SIZE} style={{ position: "absolute" }}>
-              {/* Track */}
-              <Circle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={CIRCLE_R}
-                stroke="rgba(255,255,255,0.2)"
-                strokeWidth={3}
-                fill="none"
-              />
-              {/* Fill */}
-              <AnimatedCircle
-                cx={CIRCLE_SIZE / 2}
-                cy={CIRCLE_SIZE / 2}
-                r={CIRCLE_R}
-                stroke="#fff"
-                strokeWidth={3}
-                fill="none"
-                strokeDasharray={CIRCLE_CIRCUMFERENCE}
-                strokeLinecap="round"
-                rotation="-90"
-                origin={`${CIRCLE_SIZE / 2}, ${CIRCLE_SIZE / 2}`}
-                animatedProps={animatedCircleProps}
-              />
-            </Svg>
-            <Ionicons name="exit-outline" size={18} color="#fff" />
-          </View>
-          <View>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: "#fff" }}>
-              {holding ? "Hold to Exit…" : "Exit Gym"}
-            </Text>
-            {holding && (
-              <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
-                Release to cancel
-              </Text>
-            )}
-          </View>
-        </LinearGradient>
-      </TouchableOpacity>
+          <LinearGradient
+            colors={["rgba(239,68,68,0.6)", "rgba(185,28,28,0.8)"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ flex: 1, borderRadius: SWIPE_TRACK_H / 2 }}
+          />
+        </Animated.View>
+
+        {/* Label text */}
+        <Animated.View
+          style={[
+            { position: "absolute", left: 0, right: 0, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 6 },
+            textOpacity,
+          ]}
+        >
+          <Text style={{ fontSize: 13, fontWeight: "700", color: "rgba(239,68,68,0.8)", letterSpacing: 0.5 }}>
+            Slide to Exit
+          </Text>
+          <Animated.View style={arrowShimmer}>
+            <Ionicons name="chevron-forward" size={14} color="rgba(239,68,68,0.6)" />
+          </Animated.View>
+          <Animated.View style={[arrowShimmer, { marginLeft: -8 }]}>
+            <Ionicons name="chevron-forward" size={14} color="rgba(239,68,68,0.4)" />
+          </Animated.View>
+        </Animated.View>
+
+        {/* Draggable thumb */}
+        <Animated.View
+          {...panResponder.current.panHandlers}
+          style={[
+            {
+              position: "absolute",
+              left: 4,
+              width: SWIPE_THUMB_SIZE,
+              height: SWIPE_THUMB_SIZE,
+              borderRadius: SWIPE_THUMB_SIZE / 2,
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
+            },
+            thumbStyle,
+          ]}
+        >
+          <LinearGradient
+            colors={["#EF4444", "#B91C1C"]}
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: SWIPE_THUMB_SIZE / 2,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="exit-outline" size={20} color="#fff" />
+          </LinearGradient>
+        </Animated.View>
+      </View>
     </View>
   );
 };
-
-// Animated SVG Circle for reanimated
-const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 // ─── Log Row ─────────────────────────────────────────────────────────────────
 const LogRow = ({ log, delay }) => (
@@ -1625,7 +1681,7 @@ const GymLogScreen = () => {
             )}
 
             {/* Buttons */}
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flexDirection: isInsideGym ? "column" : "row", gap: 10 }}>
               {!isInsideGym ? (
                 <TouchableOpacity
                   onPress={verifyLocationAndOpenScan}
@@ -1660,26 +1716,25 @@ const GymLogScreen = () => {
                 </TouchableOpacity>
               ) : (
                 <>
-                  <View style={{ flex: 1 }}>
-                    <LinearGradient
-                      colors={["rgba(52,211,153,0.12)", "rgba(52,211,153,0.06)"]}
-                      style={{
-                        paddingVertical: 16,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        borderRadius: 18,
-                        borderWidth: 1,
-                        borderColor: "rgba(52,211,153,0.25)",
-                      }}
-                    >
-                      <Ionicons name="checkmark-circle" size={18} color="#34d399" />
-                      <Text style={{ fontSize: 14, fontWeight: "800", color: "#34d399" }}>Checked In</Text>
-                    </LinearGradient>
-                  </View>
+                  <LinearGradient
+                    colors={["rgba(52,211,153,0.12)", "rgba(52,211,153,0.06)"]}
+                    style={{
+                      paddingVertical: 14,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                      borderRadius: 18,
+                      borderWidth: 1,
+                      borderColor: "rgba(52,211,153,0.25)",
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color="#34d399" />
+                    <Text style={{ fontSize: 14, fontWeight: "800", color: "#34d399" }}>Checked In</Text>
+                  </LinearGradient>
 
-                  <HoldToExitButton
+                  <SwipeToExitButton
                     onExitComplete={handleExitComplete}
                     disabled={isExitProcessing}
                   />
