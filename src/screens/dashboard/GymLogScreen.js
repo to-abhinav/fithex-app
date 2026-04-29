@@ -328,7 +328,7 @@ const QRScanModal = ({ visible, onClose, onScanned, mode }) => {
   // ─── Render helpers ───────────────────────────────────────────────────────
   const isEntry = mode === "entry";
   const phaseLabel = isEntry ? "Gym Entry" : "Gym Exit";
-  const phaseTitle = isEntry ? "🏋️ Scan to Enter" : "👋 Scan to Exit";
+  const phaseTitle = isEntry ? "Scan to Enter" : "Scan to Exit";
 
   return (
     <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -362,18 +362,27 @@ const QRScanModal = ({ visible, onClose, onScanned, mode }) => {
                phase === "error"      ? "Scan Failed" :
                phaseLabel}
             </Text>
-            <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff", marginTop: 6 }}>
-              {phase === "success"    ? (isEntry ? "✅ Welcome!" : "👋 See you!") :
-               phase === "error"      ? "❌ Something went wrong" :
-               phaseTitle}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 }}>
+              {phase === "success" ? (
+                <Ionicons name="checkmark-circle" size={22} color="#34d399" />
+              ) : phase === "error" ? (
+                <Ionicons name="alert-circle-outline" size={22} color="#f87171" />
+              ) : (
+                <Ionicons name={isEntry ? "scan-outline" : "exit-outline"} size={22} color={ORANGE.core} />
+              )}
+              <Text style={{ fontSize: 22, fontWeight: "900", color: "#fff" }}>
+                {phase === "success"    ? (isEntry ? "Welcome!" : "See you!") :
+                 phase === "error"      ? "Something went wrong" :
+                 phaseTitle}
+              </Text>
+            </View>
           </View>
 
           {/* ── Scanner Box ─────────────────────────────────────────────────── */}
           <View
             style={{
-              width: 240,
-              height: 240,
+              width: 300,
+              height: 300,
               alignSelf: "center",
               position: "relative",
               borderRadius: 16,
@@ -1079,57 +1088,69 @@ const SwipeToExitButton = ({ onExitComplete, disabled }) => {
 };
 
 // ─── Log Row ─────────────────────────────────────────────────────────────────
-const LogRow = ({ log, delay }) => (
-  <Animated.View entering={FadeInDown.delay(delay).springify()}>
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 13,
-        borderBottomWidth: 1,
-        borderBottomColor: "rgba(255,255,255,0.05)",
-      }}
-    >
-      <LinearGradient
-        colors={[`${ORANGE.core}22`, `${ORANGE.dark}12`]}
-        style={{
-          width: 40,
-          height: 40,
-          borderRadius: 12,
-          borderWidth: 1,
-          borderColor: `${ORANGE.core}40`,
-          alignItems: "center",
-          justifyContent: "center",
-          marginRight: 12,
-        }}
-      >
-        <Ionicons name="barbell-outline" size={17} color={ORANGE.mid} />
-      </LinearGradient>
-
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 14, fontWeight: "800", color: "#fff" }}>{log.date}</Text>
-        <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.35)", marginTop: 2 }}>
-          {log.entryTime} → {log.exitTime}
-        </Text>
-      </View>
-
+const LogRow = ({ log, delay }) => {
+  const durationColor = log.duration >= 90 ? "#34d399" : log.duration >= 60 ? ORANGE.core : "#a5b4fc";
+  return (
+    <Animated.View entering={FadeInDown.delay(delay).springify()}>
       <View
         style={{
-          backgroundColor: `${ORANGE.core}1A`,
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 14,
+          paddingHorizontal: 14,
+          marginBottom: 8,
+          backgroundColor: "rgba(255,255,255,0.03)",
+          borderRadius: 16,
           borderWidth: 1,
-          borderColor: `${ORANGE.core}40`,
-          borderRadius: 20,
-          paddingHorizontal: 10,
-          paddingVertical: 4,
+          borderColor: "rgba(255,255,255,0.05)",
         }}
       >
-        <Text style={{ fontSize: 12, fontWeight: "700", color: ORANGE.mid }}>
-          {Math.floor(log.duration / 60)}h {log.duration % 60}m
-        </Text>
+        {/* Duration dot indicator */}
+        <View style={{ marginRight: 12, alignItems: "center" }}>
+          <LinearGradient
+            colors={[`${durationColor}30`, `${durationColor}10`]}
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 13,
+              borderWidth: 1,
+              borderColor: `${durationColor}40`,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="barbell-outline" size={18} color={durationColor} />
+          </LinearGradient>
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#fff" }}>{log.date}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 3 }}>
+            <Ionicons name="time-outline" size={10} color="rgba(255,255,255,0.25)" />
+            <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
+              {log.entryTime} → {log.exitTime}
+            </Text>
+          </View>
+        </View>
+
+        <View
+          style={{
+            backgroundColor: `${durationColor}15`,
+            borderWidth: 1,
+            borderColor: `${durationColor}35`,
+            borderRadius: 20,
+            paddingHorizontal: 12,
+            paddingVertical: 5,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: "700", color: durationColor }}>
+            {Math.floor(log.duration / 60)}h {log.duration % 60}m
+          </Text>
+        </View>
       </View>
-    </View>
-  </Animated.View>
-);
+    </Animated.View>
+  );
+};
 
 // ─── Hero Card Skeleton ──────────────────────────────────────────────────────
 const SkeletonBlock = ({ width, height, borderRadius = 8, style }) => {
@@ -1498,16 +1519,26 @@ const GymLogScreen = () => {
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
       <StatusBar barStyle="light-content" />
 
+      {/* Primary gradient */}
       <LinearGradient
-        colors={["rgba(249,115,22,0.18)", "rgba(234,88,12,0.08)", "rgba(0,0,0,0)"]}
+        colors={["rgba(249,115,22,0.22)", "rgba(234,88,12,0.10)", "rgba(0,0,0,0)"]}
         locations={[0, 0.4, 1]}
-        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 380 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 420 }}
+      />
+      {/* Secondary mesh gradient for depth */}
+      <LinearGradient
+        colors={["rgba(165,180,252,0.05)", "rgba(0,0,0,0)"]}
+        locations={[0, 1]}
+        start={{ x: 1, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={{ position: "absolute", top: 0, left: 0, right: 0, height: 300 }}
       />
 
-      {/* Glow orbs */}
-      <GlowOrb size={300} color="rgba(249,115,22,0.10)" top={-80} left={SCREEN_WIDTH / 2 - 150} delay={0} />
-      <GlowOrb size={180} color="rgba(234,88,12,0.07)" top={320} left={-60} delay={1200} />
-      <GlowOrb size={140} color="rgba(251,191,36,0.06)" top={650} left={SCREEN_WIDTH - 90} delay={2500} />
+      {/* Glow orbs — more vibrant */}
+      <GlowOrb size={320} color="rgba(249,115,22,0.13)" top={-90} left={SCREEN_WIDTH / 2 - 160} delay={0} />
+      <GlowOrb size={200} color="rgba(234,88,12,0.09)" top={340} left={-70} delay={1200} />
+      <GlowOrb size={160} color="rgba(251,191,36,0.07)" top={680} left={SCREEN_WIDTH - 100} delay={2500} />
+      <GlowOrb size={120} color="rgba(165,180,252,0.05)" top={200} left={SCREEN_WIDTH - 50} delay={3000} />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 60 }}>
         {/* */}
@@ -1543,9 +1574,14 @@ const GymLogScreen = () => {
             <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.28)", textTransform: "uppercase", letterSpacing: 2, fontWeight: "700" }}>
               FitHex
             </Text>
-            <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff", marginTop: 2 }}>
-              🏋️ Gym Log
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7, marginTop: 2 }}>
+              <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: "rgba(249,115,22,0.15)", borderWidth: 1, borderColor: "rgba(249,115,22,0.3)", alignItems: "center", justifyContent: "center" }}>
+                <Ionicons name="fitness-outline" size={15} color={ORANGE.core} />
+              </View>
+              <Text style={{ fontSize: 18, fontWeight: "900", color: "#fff" }}>
+                Gym Log
+              </Text>
+            </View>
           </View>
 
           <View
@@ -1663,18 +1699,38 @@ const GymLogScreen = () => {
               </Text>
             </View>
 
-            {/* Progress ring (linear progress bar) */}
+            {/* Circular Progress Ring */}
             {isInsideGym && (
-              <View style={{ marginBottom: 20 }}>
-                <View style={{ height: 6, backgroundColor: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
-                  <LinearGradient
-                    colors={[ORANGE.light, ORANGE.core, ORANGE.dark]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
-                    style={{ width: `${progressPct}%`, height: "100%", borderRadius: 3 }}
-                  />
+              <View style={{ alignItems: "center", marginBottom: 20 }}>
+                <View style={{ width: 120, height: 68, position: "relative" }}>
+                  <Svg width={120} height={68} viewBox="0 0 120 68">
+                    {/* Background track */}
+                    <Path
+                      d={describeArc(60, 64, 52, 180, 360)}
+                      stroke="rgba(255,255,255,0.08)"
+                      strokeWidth={8}
+                      fill="none"
+                      strokeLinecap="round"
+                    />
+                    {/* Filled progress arc */}
+                    {progressPct > 0 && (
+                      <Path
+                        d={describeArc(60, 64, 52, 180, 180 + Math.min(progressPct, 100) * 1.8)}
+                        stroke={progressPct >= 100 ? "#34d399" : ORANGE.core}
+                        strokeWidth={8}
+                        fill="none"
+                        strokeLinecap="round"
+                      />
+                    )}
+                  </Svg>
+                  {/* Center percentage */}
+                  <View style={{ position: "absolute", bottom: 2, left: 0, right: 0, alignItems: "center" }}>
+                    <Text style={{ fontSize: 16, fontWeight: "900", color: progressPct >= 100 ? "#34d399" : ORANGE.mid }}>
+                      {Math.min(Math.round(progressPct), 100)}%
+                    </Text>
+                  </View>
                 </View>
-                <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 6, textAlign: "right" }}>
+                <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 4 }}>
                   {Math.floor(elapsedSeconds / 60)} min · Goal: 60 min
                 </Text>
               </View>
@@ -1745,39 +1801,66 @@ const GymLogScreen = () => {
         </Animated.View>
         )}
 
-        {/* ── Streak Summary Stats ─────────────────────────────────────────────── */}
+        {/* ── Streak Summary Stats — 2×2 Bento Grid ───────────────────────────── */}
         <Animated.View
           entering={FadeInDown.delay(220).springify()}
-          style={{ flexDirection: "row", marginHorizontal: 20, gap: 10, marginBottom: 16 }}
+          style={{ marginHorizontal: 20, marginBottom: 16 }}
         >
-          {[
-            { label: "Current Streak", value: `${currentStreak}`, unit: "days", icon: "flame", color: ORANGE.core },
-            { label: "Longest Streak", value: `${longestStreak}`, unit: "days", icon: "trophy-outline", color: ORANGE.light },
-            { label: "Total Visits", value: `${totalVisits}`, unit: "times", icon: "checkmark-circle-outline", color: "#34d399" },
-            { label: "Avg Session", value: `${avgMinutes}`, unit: "min", icon: "time-outline", color: "#a5b4fc" },
-          ].map((s, i) => (
-            <View
-              key={i}
-              style={{
-                flex: 1,
-                backgroundColor: "rgba(255,255,255,0.03)",
-                borderWidth: 1,
-                borderColor: "rgba(255,255,255,0.07)",
-                borderRadius: 18,
-                padding: 12,
-                alignItems: "center",
-              }}
-            >
-              <Ionicons name={s.icon} size={18} color={s.color} />
-              <Text style={{ fontSize: 20, fontWeight: "900", color: "#fff", marginTop: 6, letterSpacing: -0.5 }}>
-                {s.value}
-              </Text>
-              <Text style={{ fontSize: 8, color: s.color, fontWeight: "700", textTransform: "uppercase", letterSpacing: 1 }}>
-                {s.unit}
-              </Text>
-              <Text style={{ fontSize: 8.5, color: "rgba(255,255,255,0.3)", marginTop: 3, textAlign: "center" }}>
-                {s.label}
-              </Text>
+          {[[
+            { label: "Current Streak", value: `${currentStreak}`, unit: "days", icon: "flame", color: ORANGE.core, gradient: ["rgba(249,115,22,0.18)", "rgba(249,115,22,0.06)"] },
+            { label: "Longest Streak", value: `${longestStreak}`, unit: "days", icon: "trophy-outline", color: ORANGE.light, gradient: ["rgba(252,211,77,0.15)", "rgba(252,211,77,0.04)"] },
+          ], [
+            { label: "Total Visits", value: `${totalVisits}`, unit: "sessions", icon: "checkmark-circle-outline", color: "#34d399", gradient: ["rgba(52,211,153,0.12)", "rgba(52,211,153,0.04)"] },
+            { label: "Avg Session", value: `${avgMinutes}`, unit: "min", icon: "time-outline", color: "#a5b4fc", gradient: ["rgba(165,180,252,0.12)", "rgba(165,180,252,0.04)"] },
+          ]].map((row, ri) => (
+            <View key={ri} style={{ flexDirection: "row", gap: 10, marginBottom: ri === 0 ? 10 : 0 }}>
+              {row.map((s, ci) => (
+                <Animated.View
+                  key={ci}
+                  entering={FadeInDown.delay(220 + (ri * 2 + ci) * 80).springify()}
+                  style={{ flex: 1 }}
+                >
+                  <LinearGradient
+                    colors={s.gradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      borderRadius: 20,
+                      padding: 16,
+                      borderWidth: 1,
+                      borderColor: `${s.color}25`,
+                    }}
+                  >
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 11,
+                          backgroundColor: `${s.color}20`,
+                          borderWidth: 1,
+                          borderColor: `${s.color}35`,
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        <Ionicons name={s.icon} size={18} color={s.color} />
+                      </View>
+                      <Text style={{ fontSize: 9, color: "rgba(255,255,255,0.3)", fontWeight: "600", textTransform: "uppercase", letterSpacing: 1 }}>
+                        {s.label}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+                      <Text style={{ fontSize: 28, fontWeight: "900", color: "#fff", letterSpacing: -1 }}>
+                        {s.value}
+                      </Text>
+                      <Text style={{ fontSize: 11, color: s.color, fontWeight: "700", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                        {s.unit}
+                      </Text>
+                    </View>
+                  </LinearGradient>
+                </Animated.View>
+              ))}
             </View>
           ))}
         </Animated.View>
@@ -1797,7 +1880,20 @@ const GymLogScreen = () => {
             }}
           >
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 16 }}>
-              <Ionicons name="flame" size={17} color={ORANGE.core} />
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  backgroundColor: "rgba(249,115,22,0.12)",
+                  borderWidth: 1,
+                  borderColor: "rgba(249,115,22,0.25)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="flame" size={15} color={ORANGE.core} />
+              </View>
               <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
                 Gym Streak
               </Text>
@@ -1812,9 +1908,12 @@ const GymLogScreen = () => {
                   paddingVertical: 3,
                 }}
               >
-                <Text style={{ fontSize: 11, fontWeight: "700", color: ORANGE.mid }}>
-                  🔥 {currentStreak} day streak
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="flame" size={13} color={ORANGE.mid} />
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: ORANGE.mid }}>
+                    {currentStreak} day streak
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -1838,7 +1937,20 @@ const GymLogScreen = () => {
           >
             {/* Section header */}
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <Ionicons name="people-outline" size={17} color={ORANGE.mid} />
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  backgroundColor: "rgba(249,115,22,0.12)",
+                  borderWidth: 1,
+                  borderColor: "rgba(249,115,22,0.25)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="people-outline" size={15} color={ORANGE.mid} />
+              </View>
               <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
                 Gym Occupancy
               </Text>
@@ -1864,6 +1976,70 @@ const GymLogScreen = () => {
             {/* Arc gauge — no numbers */}
             <ArcGauge pct={getOccupancyNow()} />
 
+            {/* Hourly Breakdown Bars */}
+            <View style={{ marginTop: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <View style={{ flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+                <Text style={{ fontSize: 9, fontWeight: "600", color: "rgba(255,255,255,0.25)", letterSpacing: 1.5, textTransform: "uppercase" }}>
+                  Today's Pattern
+                </Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: "rgba(255,255,255,0.06)" }} />
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 4, height: 70, paddingBottom: 16 }}>
+                  {OCCUPANCY_DATA.map((d, i) => {
+                    const barH = Math.max(6, (d.pct / 100) * 50);
+                    const { color } = bucketLabel(d.pct);
+                    const hourNum = parseInt(d.hour);
+                    const isPM = d.hour.includes("PM");
+                    const hour24 = isPM ? (hourNum === 12 ? 12 : hourNum + 12) : (hourNum === 12 ? 0 : hourNum);
+                    const isCurrent = hour24 === currentHour;
+                    return (
+                      <View key={i} style={{ alignItems: "center", width: 28 }}>
+                        <View
+                          style={{
+                            width: isCurrent ? 14 : 10,
+                            height: barH,
+                            borderRadius: 4,
+                            backgroundColor: isCurrent ? color : `${color}80`,
+                            borderWidth: isCurrent ? 1 : 0,
+                            borderColor: isCurrent ? color : "transparent",
+                            shadowColor: isCurrent ? color : "transparent",
+                            shadowOffset: { width: 0, height: 0 },
+                            shadowOpacity: isCurrent ? 0.6 : 0,
+                            shadowRadius: isCurrent ? 8 : 0,
+                          }}
+                        />
+                        <Text style={{
+                          fontSize: 7,
+                          color: isCurrent ? color : "rgba(255,255,255,0.25)",
+                          fontWeight: isCurrent ? "800" : "500",
+                          marginTop: 4,
+                          position: "absolute",
+                          bottom: -14,
+                        }}>
+                          {hourNum}{isPM ? "p" : "a"}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+              {/* Legend */}
+              <View style={{ flexDirection: "row", justifyContent: "center", gap: 14, marginTop: 10 }}>
+                {[
+                  { label: "Quiet", color: "#34d399" },
+                  { label: "Moderate", color: ORANGE.mid },
+                  { label: "Busy", color: ORANGE.core },
+                  { label: "Very Busy", color: "#EF4444" },
+                ].map((l, i) => (
+                  <View key={i} style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: l.color }} />
+                    <Text style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontWeight: "600" }}>{l.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
 
           </View>
         </Animated.View>
@@ -1882,14 +2058,39 @@ const GymLogScreen = () => {
               padding: 18,
             }}
           >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <Ionicons name="list-outline" size={17} color="rgba(255,255,255,0.5)" />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 9,
+                  backgroundColor: "rgba(165,180,252,0.12)",
+                  borderWidth: 1,
+                  borderColor: "rgba(165,180,252,0.25)",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Ionicons name="list-outline" size={15} color="#a5b4fc" />
+              </View>
               <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
                 Recent Sessions
               </Text>
-              <Text style={{ marginLeft: "auto", fontSize: 11, color: "rgba(255,255,255,0.25)" }}>
-                {logs.length} logs
-              </Text>
+              <View
+                style={{
+                  marginLeft: "auto",
+                  backgroundColor: "rgba(165,180,252,0.10)",
+                  borderWidth: 1,
+                  borderColor: "rgba(165,180,252,0.2)",
+                  borderRadius: 20,
+                  paddingHorizontal: 8,
+                  paddingVertical: 3,
+                }}
+              >
+                <Text style={{ fontSize: 10, color: "#a5b4fc", fontWeight: "700" }}>
+                  {logs.length} logs
+                </Text>
+              </View>
             </View>
 
             {logs.slice(0, 6).map((log, i) => (
@@ -1897,12 +2098,26 @@ const GymLogScreen = () => {
             ))}
 
             {logs.length === 0 && (
-              <View style={{ alignItems: "center", paddingVertical: 28 }}>
-                <Ionicons name="barbell-outline" size={32} color="rgba(255,255,255,0.1)" />
-                <Text style={{ color: "rgba(255,255,255,0.2)", fontSize: 13, marginTop: 10 }}>
+              <View style={{ alignItems: "center", paddingVertical: 36 }}>
+                <View
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    backgroundColor: "rgba(249,115,22,0.06)",
+                    borderWidth: 1,
+                    borderColor: "rgba(249,115,22,0.15)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: 14,
+                  }}
+                >
+                  <Ionicons name="barbell-outline" size={28} color="rgba(249,115,22,0.25)" />
+                </View>
+                <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 14, fontWeight: "700" }}>
                   No sessions logged yet
                 </Text>
-                <Text style={{ color: "rgba(255,255,255,0.12)", fontSize: 11, marginTop: 4 }}>
+                <Text style={{ color: "rgba(255,255,255,0.15)", fontSize: 12, marginTop: 4 }}>
                   Scan QR to log your first session
                 </Text>
               </View>
