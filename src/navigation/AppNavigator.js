@@ -7,6 +7,8 @@ import ChooseRoleScreen from "../screens/auth/ChooseRoleScreen";
 import ProfileSetupScreen from "../screens/auth/ProfileSetupScreen";
 import OtpVerificationScreen from "../screens/auth/OtpVerificationScreen";
 import GymInfoScreen from "../screens/dashboard/GymInfoScreen";
+import WeightScreen from "../screens/dashboard/WeightScreen";
+import GymLogScreen from "../screens/dashboard/GymLogScreen";
 import GymPlansScreen from "../screens/dashboard/GymPlansScreen";
 import PaymentScreen from "../screens/payment/PaymentScreen";
 import PaymentSuccess from "../screens/payment/PaymentSuccess";
@@ -15,7 +17,7 @@ import MainTabNavigator from "./MainTabNavigator";
 const Stack = createNativeStackNavigator();
 
 // 🧪 TESTING FLAG — set to false to restore normal auth flow
-const TESTING = true;
+const TESTING = false;
 
 const AppNavigator = () => {
   const { isLoading, isSignedIn } = useAuth();
@@ -23,6 +25,8 @@ const AppNavigator = () => {
   if (TESTING) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="GymLog" component={GymLogScreen} />
+        <Stack.Screen name="Weight" component={WeightScreen} />
         <Stack.Screen name="GymInfo" component={GymInfoScreen} />
         <Stack.Screen name="GymPlans" component={GymPlansScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
@@ -53,6 +57,7 @@ const AppNavigator = () => {
             component={PaymentSuccess}
             options={{ gestureEnabled: false }}
           />
+          <Stack.Screen name="GymLog" component={GymLogScreen} />
           
         </>
       ) : (
