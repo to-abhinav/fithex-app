@@ -31,7 +31,15 @@ import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Animated Glow Orb (same pattern as LoginScreen) ─────────────────────────
+// ─── Dynamic Greeting ────────────────────────────────────────────────────────
+const getGreeting = () => {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+};
+
+// ─── Animated Glow Orb ──────────────────────────────────────────────────────
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.25);
 
@@ -72,8 +80,8 @@ const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   );
 };
 
-// ─── Stat Card ─────────────────────────────────────────────────────────────────
-const StatCard = ({ value, label, icon, color, bgColor, borderColor, delay }) => (
+// ─── Stat Card (Ionicons, uniform height) ───────────────────────────────────
+const StatCard = ({ value, label, iconName, color, bgColor, borderColor, delay }) => (
   <Animated.View
     entering={FadeInDown.delay(delay).springify()}
     style={{ flex: 1 }}
@@ -84,32 +92,39 @@ const StatCard = ({ value, label, icon, color, bgColor, borderColor, delay }) =>
         borderWidth: 1,
         borderColor: borderColor,
         borderRadius: 20,
-        paddingVertical: 16,
-        paddingHorizontal: 10,
+        paddingVertical: 14,
+        paddingHorizontal: 8,
         alignItems: "center",
+        justifyContent: "center",
+        minHeight: 110,
       }}
     >
-      <Text style={{ fontSize: 18, marginBottom: 4 }}>{icon}</Text>
+      <Ionicons name={iconName} size={20} color={color} style={{ marginBottom: 6 }} />
       <Text
         style={{
-          fontSize: 22,
+          fontSize: 16,
           fontWeight: "900",
           color,
           letterSpacing: -0.5,
+          textAlign: "center",
         }}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
       >
         {value}
       </Text>
       <Text
         style={{
-          fontSize: 10,
+          fontSize: 9,
           color: "rgba(255,255,255,0.35)",
           fontWeight: "600",
           textTransform: "uppercase",
-          letterSpacing: 1,
+          letterSpacing: 0.8,
           marginTop: 3,
           textAlign: "center",
         }}
+        numberOfLines={1}
       >
         {label}
       </Text>
@@ -117,8 +132,8 @@ const StatCard = ({ value, label, icon, color, bgColor, borderColor, delay }) =>
   </Animated.View>
 );
 
-// ─── Activity Log Item ─────────────────────────────────────────────────────────
-const ActivityItem = ({ icon, title, subtitle, badge, badgeColor, delay }) => (
+// ─── Activity Log Item (Ionicons, no emoji) ────────────────────────────────
+const ActivityItem = ({ iconName, title, subtitle, badge, badgeColor, delay }) => (
   <Animated.View entering={SlideInRight.delay(delay).springify()}>
     <View
       style={{
@@ -142,7 +157,7 @@ const ActivityItem = ({ icon, title, subtitle, badge, badgeColor, delay }) => (
           marginRight: 12,
         }}
       >
-        <Text style={{ fontSize: 18 }}>{icon}</Text>
+        <Ionicons name={iconName} size={18} color="#a5b4fc" />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 14, fontWeight: "600", color: "#fff" }}>{title}</Text>
@@ -158,7 +173,7 @@ const ActivityItem = ({ icon, title, subtitle, badge, badgeColor, delay }) => (
           backgroundColor: badgeColor || "rgba(99,102,241,0.15)",
           borderWidth: 1,
           borderColor: badgeColor
-            ? badgeColor.replace("0.15", "0.3")
+            ? badgeColor.replace("0.12", "0.25")
             : "rgba(99,102,241,0.25)",
         }}
       >
@@ -342,7 +357,7 @@ const ProfileScreen = () => {
               My Profile
             </Text>
             <Text style={{ fontSize: 20, fontWeight: "800", color: "#fff", marginTop: 2 }}>
-              Good morning 👋
+              {getGreeting()}
             </Text>
           </View>
           <TouchableOpacity
@@ -380,7 +395,7 @@ const ProfileScreen = () => {
               }}
             >
               <Image
-                source={{ uri: "https://i.pravatar.cc/150?img=68" }}
+                source={{ uri: "https://res.cloudinary.com/dlkre2bxo/image/upload/v1777498086/ChatGPT_Image_Apr_30_2026_02_57_41_AM_vz0bol.png" }}
                 style={{
                   width: 90,
                   height: 90,
@@ -462,7 +477,7 @@ const ProfileScreen = () => {
                 fontWeight: "400",
               }}
             >
-              📱 {user.phone}
+              {user.phone}
             </Text>
           )}
         </Animated.View>
@@ -472,7 +487,7 @@ const ProfileScreen = () => {
           <StatCard
             value={user?.numberOfWorkoutDay ?? "—"}
             label="Workout Days"
-            icon="🏋️"
+            iconName="barbell-outline"
             color="#a5b4fc"
             bgColor="rgba(99,102,241,0.08)"
             borderColor="rgba(99,102,241,0.18)"
@@ -481,7 +496,7 @@ const ProfileScreen = () => {
           <StatCard
             value={user?.weight ? `${user.weight}` : "—"}
             label="Weight (kg)"
-            icon="⚖️"
+            iconName="scale-outline"
             color="#fca5a5"
             bgColor="rgba(239,68,68,0.08)"
             borderColor="rgba(239,68,68,0.18)"
@@ -490,7 +505,7 @@ const ProfileScreen = () => {
           <StatCard
             value={goalLabel}
             label="Goal"
-            icon="🎯"
+            iconName="flag-outline"
             color="#6ee7b7"
             bgColor="rgba(16,185,129,0.08)"
             borderColor="rgba(16,185,129,0.18)"
@@ -499,7 +514,7 @@ const ProfileScreen = () => {
           <StatCard
             value={formatVisitTime(user?.preferredVisitTime)}
             label="Visit Time"
-            icon="⏰"
+            iconName="time-outline"
             color="#93c5fd"
             bgColor="rgba(59,130,246,0.08)"
             borderColor="rgba(59,130,246,0.18)"
@@ -549,7 +564,7 @@ const ProfileScreen = () => {
             </View>
 
             <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
-              💪 2 more workouts to crush your goal this week
+              2 more workouts to crush your goal this week
             </Text>
           </View>
         </Animated.View>
@@ -657,10 +672,10 @@ const ProfileScreen = () => {
               </TouchableOpacity>
             </View>
 
-            <ActivityItem icon="🏃" title="Morning Run" subtitle="Today · 5.2 km · 34 min" badge="+320 kcal" badgeColor="rgba(16,185,129,0.12)" delay={680} />
-            <ActivityItem icon="🏋️" title="Upper Body Push" subtitle="Yesterday · 45 min" badge="+580 kcal" badgeColor="rgba(99,102,241,0.12)" delay={710} />
-            <ActivityItem icon="🧘" title="Yoga & Recovery" subtitle="2 days ago · 30 min" badge="+150 kcal" badgeColor="rgba(139,92,246,0.12)" delay={740} />
-            <ActivityItem icon="🚴" title="Cycling" subtitle="3 days ago · 12 km" badge="+440 kcal" badgeColor="rgba(6,182,212,0.12)" delay={770} />
+            <ActivityItem iconName="walk-outline" title="Morning Run" subtitle="Today · 5.2 km · 34 min" badge="+320 kcal" badgeColor="rgba(16,185,129,0.12)" delay={680} />
+            <ActivityItem iconName="barbell-outline" title="Upper Body Push" subtitle="Yesterday · 45 min" badge="+580 kcal" badgeColor="rgba(99,102,241,0.12)" delay={710} />
+            <ActivityItem iconName="body-outline" title="Yoga & Recovery" subtitle="2 days ago · 30 min" badge="+150 kcal" badgeColor="rgba(139,92,246,0.12)" delay={740} />
+            <ActivityItem iconName="bicycle-outline" title="Cycling" subtitle="3 days ago · 12 km" badge="+440 kcal" badgeColor="rgba(6,182,212,0.12)" delay={770} />
           </View>
         </Animated.View>
 
@@ -789,7 +804,7 @@ const ProfileScreen = () => {
         {/* ── Footer ───────────────────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(900).springify()} style={{ alignItems: "center", marginTop: 8 }}>
           <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", fontWeight: "500" }}>
-            FitHex · v1.0.0 · Made with 💪
+            FitHex · v1.0.0
           </Text>
         </Animated.View>
       </ScrollView>
