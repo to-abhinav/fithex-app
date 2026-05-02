@@ -50,7 +50,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const GRAPH_WIDTH = SCREEN_WIDTH - 48;
 const GRAPH_HEIGHT = 180;
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
+// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.25);
   useEffect(() => {
@@ -241,7 +241,7 @@ const WeightGraph = ({ entries }) => {
   );
 };
 
-// ─── BMI Gauge ─────────────────────────────────────────────────────────────────
+// ─── BMI Gauge --──
 const BMIGauge = ({ bmi }) => {
   if (!bmi) return null;
   const cat = bmiCategory(bmi);
@@ -435,7 +435,7 @@ const HistoryItem = ({ entry, prevWeight, onDelete, delay }) => {
   );
 };
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
+// ─── Main Screen --
 const WeightScreen = () => {
   const navigation = useNavigation();
 

@@ -99,7 +99,7 @@ const SectionHeader = ({ icon, title, delay = 0 }) => (
   </Animated.View>
 );
 
-// ─── Info Row ──────────────────────────────────────────────────────────────────
+// ─── Info Row --───
 const InfoRow = ({ icon, label, value, onPress, accent, delay = 0 }) => (
   <Animated.View entering={FadeInDown.delay(delay).springify()}>
     <TouchableOpacity
@@ -285,7 +285,7 @@ const PolicyBadge = ({ icon, label, value, color, bg, delay }) => (
   </Animated.View>
 );
 
-// ─── Timing Row ───────────────────────────────────────────────────────────────
+// ─── Timing Row --
 const DAYS_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const DAYS_FULL  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -585,7 +585,7 @@ const MOCK_GYM = {
   minimumAge: 16,
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Helpers --───
 const todayDayName = () =>
   ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
     new Date().getDay()
@@ -624,7 +624,7 @@ const GymInfoScreen = () => {
     return () => clearTimeout(t);
   }, []);
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
+  // ── Loading --──
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>

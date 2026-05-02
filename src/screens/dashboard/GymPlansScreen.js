@@ -29,7 +29,7 @@ import Animated, {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
+// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.2);
   useEffect(() => {
@@ -89,7 +89,7 @@ const calcSavings = (plan, monthlyPrice) => {
   return { saved, pct };
 };
 
-// ─── Plan Card ────────────────────────────────────────────────────────────────
+// ─── Plan Card --─
 const PlanCard = ({ plan, index, monthlyPrice, onEnroll }) => {
   const catMeta  = CATEGORY_META[plan.category]  || CATEGORY_META.Strength;
   const planMeta = PLAN_META[plan.name]           || PLAN_META.Custom;
@@ -733,7 +733,7 @@ const GymPlansScreen = () => {
     navigation.navigate("Payment", { plan });
   }, [navigation]);
 
-  // ── Loading ────────────────────────────────────────────────────────────────
+  // ── Loading --─
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>

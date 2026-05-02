@@ -125,7 +125,7 @@ const INITIAL_LOGS = [
   { id: 5, date: "Apr 10", entryTime: "7:30 AM", exitTime: "9:10 AM", duration: 100 },
 ];
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers --──
 const fmtTime = (sec) => {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
@@ -169,7 +169,7 @@ const getOccupancyNow = () => {
   return 50;
 };
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
+// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.25);
   useEffect(() => {
@@ -1087,7 +1087,7 @@ const SwipeToExitButton = ({ onExitComplete, disabled }) => {
   );
 };
 
-// ─── Log Row ─────────────────────────────────────────────────────────────────
+// ─── Log Row --──
 const LogRow = ({ log, delay }) => {
   const durationColor = log.duration >= 90 ? "#34d399" : log.duration >= 60 ? ORANGE.core : "#a5b4fc";
   return (

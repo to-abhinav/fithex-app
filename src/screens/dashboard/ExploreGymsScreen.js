@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
+import * as Location from "expo-location";
+import { getNearbyGyms } from "../../api/gymService";
 import {
   View,
   Text,
@@ -36,7 +38,7 @@ import Animated, {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
+// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.2);
   useEffect(() => {
@@ -157,7 +159,7 @@ const OccupancyIndicator = ({ current, max }) => {
   );
 };
 
-// ─── Price Tier ───────────────────────────────────────────────────────────────
+// ─── Price Tier --
 const PriceTier = ({ tier }) => {
   const tiers = ["₹", "₹₹", "₹₹₹"];
   return (
@@ -178,7 +180,7 @@ const PriceTier = ({ tier }) => {
   );
 };
 
-// ─── Gym Card ─────────────────────────────────────────────────────────────────
+// ─── Gym Card --──
 const GymCard = ({ gym, index, onPress, onSave }) => {
   const [saved, setSaved] = useState(gym.isSaved || false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -491,7 +493,7 @@ const GymCard = ({ gym, index, onPress, onSave }) => {
   );
 };
 
-// ─── Filter Chip ───────────────────────────────────────────────────────────────
+// ─── Filter Chip --
 const FilterChip = ({ label, icon, active, onPress }) => (
   <TouchableOpacity activeOpacity={0.75} onPress={onPress}>
     <View
@@ -582,149 +584,17 @@ const StyleSheet_abs = {
   bottom: 0,
 };
 
-// ─── Mock Nearby Gyms Data ────────────────────────────────────────────────────
-const MOCK_GYMS = [
-  {
-    _id: "gym001",
-    name: "IronEdge Fitness",
-    description: "Mumbai's premier training facility with state-of-the-art equipment.",
-    contactNumber: "+91 98765 43210",
-    address: { street: "42 Marine Drive", city: "Mumbai", state: "Maharashtra", pincode: "400001" },
-    images: {
-      profile: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200",
-      cover: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800",
-    },
-    amenities: ["AC", "Parking", "Locker", "Shower", "Cardio", "Crossfit", "Personal Trainer", "WiFi"],
-    timings: [
-      { day: "Monday", openTime: "05:30", closeTime: "23:00", isClosed: false },
-      { day: "Tuesday", openTime: "05:30", closeTime: "23:00", isClosed: false },
-      { day: "Wednesday", openTime: "05:30", closeTime: "23:00", isClosed: false },
-      { day: "Thursday", openTime: "05:30", closeTime: "23:00", isClosed: false },
-      { day: "Friday", openTime: "05:30", closeTime: "22:00", isClosed: false },
-      { day: "Saturday", openTime: "07:00", closeTime: "21:00", isClosed: false },
-      { day: "Sunday", openTime: "08:00", closeTime: "18:00", isClosed: false },
-    ],
-    maxCapacity: 120,
-    currentMembers: 68,
-    rating: { average: 4.6, totalReviews: 238 },
-    isVerified: true,
-    isFeatured: true,
-    distance: "0.8",
-    priceTier: 3,
-  },
-  {
-    _id: "gym002",
-    name: "PulseFit Arena",
-    description: "High-energy cardio and HIIT sessions for all fitness levels.",
-    contactNumber: "+91 91234 56789",
-    address: { street: "15 Bandra West", city: "Mumbai", state: "Maharashtra", pincode: "400050" },
-    images: {
-      profile: "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=200",
-      cover: "https://images.unsplash.com/photo-1576678927484-cc907957088c?w=800",
-    },
-    amenities: ["AC", "Cardio", "Yoga", "Shower", "WiFi", "Personal Trainer"],
-    timings: [
-      { day: "Monday", openTime: "06:00", closeTime: "22:00", isClosed: false },
-      { day: "Tuesday", openTime: "06:00", closeTime: "22:00", isClosed: false },
-      { day: "Wednesday", openTime: "06:00", closeTime: "22:00", isClosed: false },
-      { day: "Thursday", openTime: "06:00", closeTime: "22:00", isClosed: false },
-      { day: "Friday", openTime: "06:00", closeTime: "21:00", isClosed: false },
-      { day: "Saturday", openTime: "07:00", closeTime: "20:00", isClosed: false },
-      { day: "Sunday", openTime: "08:00", closeTime: "17:00", isClosed: false },
-    ],
-    maxCapacity: 80,
-    currentMembers: 30,
-    rating: { average: 4.3, totalReviews: 142 },
-    isVerified: true,
-    isFeatured: false,
-    distance: "1.2",
-    priceTier: 2,
-  },
-  {
-    _id: "gym003",
-    name: "Zenith CrossFit",
-    description: "Olympic lifting, CrossFit WODs, and strength coaching under one roof.",
-    contactNumber: "+91 87654 32109",
-    address: { street: "8 Andheri East", city: "Mumbai", state: "Maharashtra", pincode: "400069" },
-    images: {
-      profile: "https://images.unsplash.com/photo-1594381898411-846e7d193883?w=200",
-      cover: "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=800",
-    },
-    amenities: ["Crossfit", "Parking", "Locker", "Shower", "Sauna", "Personal Trainer"],
-    timings: [
-      { day: "Monday", openTime: "05:00", closeTime: "21:00", isClosed: false },
-      { day: "Tuesday", openTime: "05:00", closeTime: "21:00", isClosed: false },
-      { day: "Wednesday", openTime: "05:00", closeTime: "21:00", isClosed: false },
-      { day: "Thursday", openTime: "05:00", closeTime: "21:00", isClosed: false },
-      { day: "Friday", openTime: "05:00", closeTime: "20:00", isClosed: false },
-      { day: "Saturday", openTime: "07:00", closeTime: "19:00", isClosed: false },
-      { day: "Sunday", openTime: "00:00", closeTime: "00:00", isClosed: true },
-    ],
-    maxCapacity: 60,
-    currentMembers: 52,
-    rating: { average: 4.8, totalReviews: 89 },
-    isVerified: false,
-    isFeatured: true,
-    distance: "2.1",
-    priceTier: 2,
-  },
-  {
-    _id: "gym004",
-    name: "FlexZone Studio",
-    description: "Yoga, Zumba and mindful movement classes for holistic wellness.",
-    contactNumber: "+91 99887 66554",
-    address: { street: "22 Juhu Beach Road", city: "Mumbai", state: "Maharashtra", pincode: "400049" },
-    images: {
-      profile: null,
-      cover: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=800",
-    },
-    amenities: ["Yoga", "Zumba", "AC", "Shower", "WiFi"],
-    timings: [
-      { day: "Monday", openTime: "06:30", closeTime: "20:30", isClosed: false },
-      { day: "Tuesday", openTime: "06:30", closeTime: "20:30", isClosed: false },
-      { day: "Wednesday", openTime: "06:30", closeTime: "20:30", isClosed: false },
-      { day: "Thursday", openTime: "06:30", closeTime: "20:30", isClosed: false },
-      { day: "Friday", openTime: "06:30", closeTime: "20:30", isClosed: false },
-      { day: "Saturday", openTime: "08:00", closeTime: "18:00", isClosed: false },
-      { day: "Sunday", openTime: "09:00", closeTime: "15:00", isClosed: false },
-    ],
-    maxCapacity: 40,
-    currentMembers: 12,
-    rating: { average: 4.5, totalReviews: 61 },
-    isVerified: true,
-    isFeatured: false,
-    distance: "2.7",
-    priceTier: 1,
-  },
-  {
-    _id: "gym005",
-    name: "PowerHouse Gym",
-    description: "Classic bodybuilding with a community of dedicated lifters.",
-    contactNumber: "+91 77665 44332",
-    address: { street: "5 Malad West", city: "Mumbai", state: "Maharashtra", pincode: "400064" },
-    images: {
-      profile: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=200",
-      cover: "https://images.unsplash.com/photo-1527933053326-89d1746b76b9?w=800",
-    },
-    amenities: ["Parking", "Locker", "Shower", "Cardio", "Steam", "Protein Bar"],
-    timings: [
-      { day: "Monday", openTime: "05:00", closeTime: "23:59", isClosed: false },
-      { day: "Tuesday", openTime: "05:00", closeTime: "23:59", isClosed: false },
-      { day: "Wednesday", openTime: "05:00", closeTime: "23:59", isClosed: false },
-      { day: "Thursday", openTime: "05:00", closeTime: "23:59", isClosed: false },
-      { day: "Friday", openTime: "05:00", closeTime: "23:59", isClosed: false },
-      { day: "Saturday", openTime: "06:00", closeTime: "22:00", isClosed: false },
-      { day: "Sunday", openTime: "07:00", closeTime: "20:00", isClosed: false },
-    ],
-    maxCapacity: 100,
-    currentMembers: 88,
-    rating: { average: 4.1, totalReviews: 315 },
-    isVerified: false,
-    isFeatured: false,
-    distance: "3.4",
-    priceTier: 1,
-  },
-];
+// ─── Haversine distance (km) ──────────────────────────────────────────────────
+const haversineKm = (lat1, lon1, lat2, lon2) => {
+  const toRad = (v) => (v * Math.PI) / 180;
+  const R = 6371;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return (R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(1);
+};
 
 const AMENITY_FILTERS = [
   { key: "AC", icon: "snow-outline" },
@@ -744,36 +614,79 @@ const SORT_OPTIONS = [
   { key: "price_asc", label: "Budget" },
 ];
 
-// ─── Main Screen ───────────────────────────────────────────────────────────────
+// ─── Main Screen --
 const ExploreGymsScreen = () => {
   const navigation = useNavigation();
   const [gyms, setGyms] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);       // "denied" | "error" | null
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState([]);
   const [sortBy, setSortBy] = useState("distance");
   const [showOpenOnly, setShowOpenOnly] = useState(false);
   const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
+  const [cityLabel, setCityLabel] = useState("");
   const searchRef = useRef(null);
+  const coordsRef = useRef(null);                  // cache user coords
 
   const today = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
     new Date().getDay()
   ];
 
-  const loadGyms = useCallback(() => {
-    return new Promise((resolve) => setTimeout(resolve, 900));
+  // ─── Fetch location → API 
+  const loadGyms = useCallback(async () => {
+    try {
+      // 1. Request permission
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setError("denied");
+        setLoading(false);
+        return;
+      }
+
+      // 2. Get device coordinates
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = loc.coords;
+      coordsRef.current = { latitude, longitude };
+
+      // 3. Reverse-geocode for city label
+      try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (place?.city) setCityLabel(place.city);
+        else if (place?.region) setCityLabel(place.region);
+      } catch {
+      }
+
+      // 4. Call backend
+      const data = await getNearbyGyms({ longitude, latitude, radius: 10 });
+
+      // 5. Attach client-side distance
+      const withDistance = (data.gyms || []).map((gym) => {
+        const [gymLng, gymLat] = gym.location?.coordinates || [longitude, latitude];
+        return {
+          ...gym,
+          distance: haversineKm(latitude, longitude, gymLat, gymLng),
+        };
+      });
+
+      setGyms(withDistance);
+      setError(null);
+    } catch (err) {
+      console.error("[ExploreGyms] load failed:", err.message);
+      setError("error");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    loadGyms().then(() => {
-      setGyms(MOCK_GYMS);
-      setLoading(false);
-    });
+    loadGyms();
   }, []);
 
-  // Apply filters + sort whenever deps change
   useEffect(() => {
     let result = [...gyms];
 
@@ -822,10 +735,11 @@ const ExploreGymsScreen = () => {
     setFiltered(result);
   }, [gyms, search, activeFilters, sortBy, showOpenOnly, showVerifiedOnly]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    loadGyms().then(() => setRefreshing(false));
-  }, []);
+    await loadGyms();
+    setRefreshing(false);
+  }, [loadGyms]);
 
   const toggleFilter = (key) => {
     setActiveFilters((prev) =>
@@ -868,6 +782,63 @@ const ExploreGymsScreen = () => {
     );
   }
 
+  // ─── Error / Permission Denied 
+  if (error) {
+    const isDenied = error === "denied";
+    return (
+      <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <StatusBar barStyle="light-content" />
+        <LinearGradient
+          colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.1)", "rgba(0,0,0,0)"]}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, height: 400 }}
+        />
+        <Animated.View entering={ZoomIn.springify()}>
+          <LinearGradient
+            colors={isDenied ? ["#f87171", "#ef4444"] : ["#fbbf24", "#f59e0b"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 20 }}
+          >
+            <Ionicons name={isDenied ? "location-outline" : "cloud-offline-outline"} size={32} color="#fff" />
+          </LinearGradient>
+        </Animated.View>
+        <Text style={{ fontSize: 20, fontWeight: "800", color: "#fff", textAlign: "center", marginBottom: 8 }}>
+          {isDenied ? "Location Access Required" : "Something went wrong"}
+        </Text>
+        <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 20, marginBottom: 24 }}>
+          {isDenied
+            ? "FitHex needs your location to show nearby gyms. Please grant location access in your device settings."
+            : "We couldn't load gyms right now. Check your internet connection and try again."}
+        </Text>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => {
+            if (isDenied) {
+              Linking.openSettings();
+            } else {
+              setError(null);
+              setLoading(true);
+              loadGyms();
+            }
+          }}
+          style={{ overflow: "hidden", borderRadius: 14 }}
+        >
+          <LinearGradient
+            colors={["#6366f1", "#8b5cf6"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={{ paddingHorizontal: 32, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8 }}
+          >
+            <Ionicons name={isDenied ? "settings-outline" : "refresh-outline"} size={16} color="#fff" />
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
+              {isDenied ? "Open Settings" : "Try Again"}
+            </Text>
+          </LinearGradient>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
       <StatusBar barStyle="light-content" />
@@ -896,7 +867,7 @@ const ExploreGymsScreen = () => {
           />
         }
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* ── Header  */}
         <Animated.View
           entering={FadeInDown.delay(0).duration(500)}
           style={{ paddingHorizontal: 20, paddingTop: 56, paddingBottom: 4 }}
@@ -920,7 +891,7 @@ const ExploreGymsScreen = () => {
                 Explore Gyms
               </Text>
               <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginTop: 2, fontWeight: "400" }}>
-                {filtered.length} gyms near Mumbai
+                {filtered.length} gym{filtered.length !== 1 ? "s" : ""}{cityLabel ? ` near ${cityLabel}` : " nearby"}
               </Text>
             </View>
 
@@ -942,7 +913,7 @@ const ExploreGymsScreen = () => {
           </View>
         </Animated.View>
 
-        {/* ── Stats Row ───────────────────────────────────────────────────── */}
+        {/* ── Stats Row  */}
         <Animated.View
           entering={FadeInDown.delay(100).springify()}
           style={{ flexDirection: "row", gap: 10, paddingHorizontal: 20, marginTop: 16, marginBottom: 20 }}
@@ -957,7 +928,7 @@ const ExploreGymsScreen = () => {
           />
         </Animated.View>
 
-        {/* ── Search Bar ──────────────────────────────────────────────────── */}
+        {/* ── Search Bar  */}
         <Animated.View
           entering={FadeInDown.delay(150).springify()}
           style={{ paddingHorizontal: 20, marginBottom: 14 }}
@@ -993,7 +964,7 @@ const ExploreGymsScreen = () => {
           </View>
         </Animated.View>
 
-        {/* ── Quick Toggle Filters ─────────────────────────────────────────── */}
+        {/* ── Quick Toggle Filters  */}
         <Animated.View
           entering={FadeInDown.delay(200).springify()}
           style={{ paddingHorizontal: 20, marginBottom: 10 }}

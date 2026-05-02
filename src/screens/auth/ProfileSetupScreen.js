@@ -33,7 +33,7 @@ import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Glow Orb ─────────────────────────────────────────────────────────────────
+// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.3);
 
@@ -388,7 +388,7 @@ const GoalTile = ({ icon, label, description, value, selected, onPress, gradient
   );
 };
 
-// ─── Data ──────────────────────────────────────────────────────────────────────
+// ─── Data --───────
 const GENDER_OPTIONS = [
   { value: "male",   label: "Male",   icon: "male-outline"   },
   { value: "female", label: "Female", icon: "female-outline" },

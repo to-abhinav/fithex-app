@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
 import {
@@ -11,6 +11,10 @@ import {
   ScrollView,
   Dimensions,
   Alert,
+  Modal,
+  FlatList,
+  Platform,
+  StyleSheet,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,10 +27,13 @@ import Animated, {
   withDelay,
   FadeInDown,
   FadeInUp,
+  FadeIn,
   Easing,
   interpolate,
   SlideInRight,
+  SlideInDown,
 } from "react-native-reanimated";
+import * as ImagePicker from "expo-image-picker";
 import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -239,11 +246,21 @@ const SettingsRow = ({ icon, label, value, onPress, danger, delay }) => (
   </Animated.View>
 );
 
+// ─── Default fallback avatar ────────────────────────────────────────────────
+const DEFAULT_AVATAR = "https://res.cloudinary.com/dlkre2bxo/image/upload/f_auto,q_auto/v1777577974/avatar_1.png";
+
 const ProfileScreen = () => {
   const navigation = useNavigation();
   const { signOut } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // ── Image Picker State ──────────────────────────────────────────────────
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerTab, setPickerTab] = useState("avatar"); // "avatar" | "upload"
+  const [avatars, setAvatars] = useState([]);
+  const [uploading, setUploading] = useState(false);
+  const [selectedAvatarId, setSelectedAvatarId] = useState(null);
 
   useEffect(() => {
     fetchUserData();
@@ -260,13 +277,101 @@ const ProfileScreen = () => {
     }
   };
 
+  // ── Fetch preset avatars ──────────────────────────────────────────────────
+  const fetchAvatars = useCallback(async () => {
+    try {
+      const res = await api.get("/users/avatars");
+      setAvatars(res.data.avatars || []);
+    } catch (err) {
+      console.error("Error fetching avatars:", err);
+    }
+  }, []);
+
+  const openPicker = () => {
+    setShowPicker(true);
+    if (avatars.length === 0) fetchAvatars();
+  };
+
+  // ── Select a preset avatar ────────────────────────────────────────────────
+  const handleAvatarSelect = async (avatarId) => {
+    try {
+      setUploading(true);
+      setSelectedAvatarId(avatarId);
+      const res = await api.patch("/users/profile-image", { avatarId });
+      setUser((prev) => ({ ...prev, profileImage: res.data.profileImage }));
+      setShowPicker(false);
+    } catch (err) {
+      Alert.alert("Error", err.response?.data?.message || "Failed to update avatar.");
+    } finally {
+      setUploading(false);
+      setSelectedAvatarId(null);
+    }
+  };
+
+  // ── Upload custom photo ───────────────────────────────────────────────────
+  const pickImage = async (useCamera = false) => {
+    try {
+      // Request permissions
+      if (useCamera) {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission Required", "Camera access is needed to take a photo.");
+          return;
+        }
+      } else {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert("Permission Required", "Photo library access is needed.");
+          return;
+        }
+      }
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ["images"],
+            allowsEditing: false,
+            quality: 0.8,
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ["images"],
+            allowsEditing: false,
+            quality: 0.8,
+          });
+
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      setUploading(true);
+
+      // Build FormData
+      const formData = new FormData();
+      formData.append("profileImage", {
+        uri: Platform.OS === "ios" ? asset.uri.replace("file://", "") : asset.uri,
+        type: asset.mimeType || "image/jpeg",
+        name: asset.fileName || `profile_${Date.now()}.jpg`,
+      });
+
+      const res = await api.patch("/users/profile-image", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      setUser((prev) => ({ ...prev, profileImage: res.data.profileImage }));
+      setShowPicker(false);
+    } catch (err) {
+      console.error("Upload error:", err);
+      Alert.alert("Upload Failed", err.response?.data?.message || "Something went wrong.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleLogout = () => {
     Alert.alert("Log Out", "Are you sure you want to log out?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log Out",
         style: "destructive",
-        onPress: () => signOut(), // clears token + flips isSignedIn → navigator auto-redirects
+        onPress: () => signOut(), 
       },
     ]);
   };
@@ -380,46 +485,54 @@ const ProfileScreen = () => {
           entering={FadeInUp.delay(150).springify()}
           style={{ alignItems: "center", paddingTop: 20, paddingBottom: 32 }}
         >
-          {/* Avatar ring */}
-          <View style={{ position: "relative", marginBottom: 16 }}>
+          {/* Avatar ring — tap to change */}
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={openPicker}
+            style={{ position: "relative", marginBottom: 16 }}
+          >
             <LinearGradient
               colors={["#6366f1", "#8b5cf6", "#06b6d4"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={{
-                width: 100,
-                height: 100,
-                borderRadius: 50,
+                width: 120,
+                height: 120,
+                borderRadius: 60,
                 alignItems: "center",
                 justifyContent: "center",
               }}
             >
               <Image
-                source={{ uri: "https://res.cloudinary.com/dlkre2bxo/image/upload/v1777498086/ChatGPT_Image_Apr_30_2026_02_57_41_AM_vz0bol.png" }}
+                source={{ uri: user?.profileImage || DEFAULT_AVATAR }}
                 style={{
-                  width: 90,
-                  height: 90,
-                  borderRadius: 45,
+                  width: 108,
+                  height: 108,
+                  borderRadius: 54,
                   borderWidth: 3,
                   borderColor: "#09090f",
                 }}
               />
             </LinearGradient>
-            {/* Online badge */}
+            {/* Camera edit badge */}
             <View
               style={{
                 position: "absolute",
-                bottom: 4,
-                right: 4,
-                width: 18,
-                height: 18,
-                borderRadius: 9,
-                backgroundColor: "#10b981",
+                bottom: 2,
+                right: 2,
+                width: 28,
+                height: 28,
+                borderRadius: 14,
+                backgroundColor: "#6366f1",
                 borderWidth: 2.5,
                 borderColor: "#09090f",
+                alignItems: "center",
+                justifyContent: "center",
               }}
-            />
-          </View>
+            >
+              <Ionicons name="camera" size={13} color="#fff" />
+            </View>
+          </TouchableOpacity>
 
           <Text
             style={{
@@ -808,6 +921,359 @@ const ProfileScreen = () => {
           </Text>
         </Animated.View>
       </ScrollView>
+
+      {/* ═══════════════════════ Image Picker Modal ═══════════════════════ */}
+      <Modal
+        visible={showPicker}
+        transparent
+        animationType="none"
+        statusBarTranslucent
+        onRequestClose={() => !uploading && setShowPicker(false)}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => !uploading && setShowPicker(false)}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.6)",
+            justifyContent: "flex-end",
+          }}
+        >
+          {/* Sheet content — stop propagation */}
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+            <Animated.View
+              entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))}
+              style={{
+                backgroundColor: "#111118",
+                borderTopLeftRadius: 28,
+                borderTopRightRadius: 28,
+                borderWidth: 1,
+                borderColor: "rgba(99,102,241,0.15)",
+                borderBottomWidth: 0,
+                paddingBottom: Platform.OS === "ios" ? 40 : 24,
+                maxHeight: Dimensions.get("window").height * 0.80,
+              }}
+            >
+              {/* ── Handle Bar ──────────────────────────────────────────── */}
+              <View style={{ alignItems: "center", paddingTop: 12, paddingBottom: 8 }}>
+                <View
+                  style={{
+                    width: 40,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: "rgba(255,255,255,0.15)",
+                  }}
+                />
+              </View>
+
+              {/* ── Title ───────────────────────────────────────────────── */}
+              <Text
+                style={{
+                  textAlign: "center",
+                  fontSize: 17,
+                  fontWeight: "800",
+                  color: "#fff",
+                  letterSpacing: -0.3,
+                  marginBottom: 16,
+                }}
+              >
+                Change Profile Photo
+              </Text>
+
+              {/* ── Tab Pills ──────────────────────────────────────────── */}
+              <View
+                style={{
+                  flexDirection: "row",
+                  marginHorizontal: 20,
+                  marginBottom: 18,
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  borderRadius: 14,
+                  padding: 4,
+                }}
+              >
+                {["avatar", "upload"].map((tab) => (
+                  <TouchableOpacity
+                    key={tab}
+                    activeOpacity={0.8}
+                    onPress={() => setPickerTab(tab)}
+                    style={{ flex: 1 }}
+                  >
+                    {pickerTab === tab ? (
+                      <LinearGradient
+                        colors={["#6366f1", "#8b5cf6"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{
+                          borderRadius: 11,
+                          paddingVertical: 10,
+                          alignItems: "center",
+                          flexDirection: "row",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <Ionicons
+                          name={tab === "avatar" ? "people" : "cloud-upload"}
+                          size={14}
+                          color="#fff"
+                        />
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
+                          {tab === "avatar" ? "Choose Avatar" : "Upload Photo"}
+                        </Text>
+                      </LinearGradient>
+                    ) : (
+                      <View
+                        style={{
+                          borderRadius: 11,
+                          paddingVertical: 10,
+                          alignItems: "center",
+                          flexDirection: "row",
+                          justifyContent: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <Ionicons
+                          name={tab === "avatar" ? "people-outline" : "cloud-upload-outline"}
+                          size={14}
+                          color="rgba(255,255,255,0.4)"
+                        />
+                        <Text
+                          style={{
+                            fontSize: 13,
+                            fontWeight: "600",
+                            color: "rgba(255,255,255,0.4)",
+                          }}
+                        >
+                          {tab === "avatar" ? "Choose Avatar" : "Upload Photo"}
+                        </Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* ── Tab Content ─────────────────────────────────────────── */}
+              {pickerTab === "avatar" ? (
+                /* ── Avatar Grid ────────────────────────────────────── */
+                <FlatList
+                  data={avatars}
+                  keyExtractor={(item) => item.id}
+                  numColumns={4}
+                  contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 8 }}
+                  columnWrapperStyle={{ gap: 12, marginBottom: 12 }}
+                  showsVerticalScrollIndicator={false}
+                  ListEmptyComponent={
+                    <View style={{ alignItems: "center", paddingVertical: 32 }}>
+                      <ActivityIndicator size="small" color="#6366f1" />
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.3)",
+                          fontSize: 12,
+                          marginTop: 10,
+                        }}
+                      >
+                        Loading avatars…
+                      </Text>
+                    </View>
+                  }
+                  renderItem={({ item }) => {
+                    const isSelected = user?.profileImage === item.url;
+                    const isSelecting = selectedAvatarId === item.id && uploading;
+                    return (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => handleAvatarSelect(item.id)}
+                        disabled={uploading}
+                        style={{ flex: 1, alignItems: "center" }}
+                      >
+                        <View
+                          style={{
+                            width: 72,
+                            height: 72,
+                            borderRadius: 36,
+                            borderWidth: 2.5,
+                            borderColor: isSelected ? "#6366f1" : "rgba(255,255,255,0.08)",
+                            padding: 3,
+                            backgroundColor: isSelected
+                              ? "rgba(99,102,241,0.12)"
+                              : "rgba(255,255,255,0.03)",
+                          }}
+                        >
+                          <Image
+                            source={{ uri: item.url }}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              borderRadius: 34,
+                            }}
+                            resizeMode="cover"
+                          />
+                          {isSelecting && (
+                            <View
+                              style={{
+                                ...StyleSheet.absoluteFillObject,
+                                borderRadius: 34,
+                                backgroundColor: "rgba(0,0,0,0.5)",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              <ActivityIndicator size="small" color="#fff" />
+                            </View>
+                          )}
+                        </View>
+                        {isSelected && (
+                          <View
+                            style={{
+                              position: "absolute",
+                              bottom: -2,
+                              right: "50%",
+                              marginRight: -10,
+                              width: 20,
+                              height: 20,
+                              borderRadius: 10,
+                              backgroundColor: "#6366f1",
+                              borderWidth: 2,
+                              borderColor: "#111118",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <Ionicons name="checkmark" size={11} color="#fff" />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  }}
+                />
+              ) : (
+                /* ── Upload Options ─────────────────────────────────── */
+                <View style={{ paddingHorizontal: 20, gap: 12 }}>
+                  {/* Camera */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => pickImage(true)}
+                    disabled={uploading}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 14,
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      borderWidth: 1,
+                      borderColor: "rgba(99,102,241,0.2)",
+                      borderRadius: 16,
+                      paddingVertical: 16,
+                      paddingHorizontal: 18,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: "rgba(99,102,241,0.12)",
+                        borderWidth: 1,
+                        borderColor: "rgba(99,102,241,0.25)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="camera-outline" size={22} color="#a5b4fc" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+                        Take Photo
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.35)",
+                          marginTop: 2,
+                        }}
+                      >
+                        Use your camera to snap a new pic
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.2)" />
+                  </TouchableOpacity>
+
+                  {/* Photo Library */}
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={() => pickImage(false)}
+                    disabled={uploading}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 14,
+                      backgroundColor: "rgba(255,255,255,0.04)",
+                      borderWidth: 1,
+                      borderColor: "rgba(139,92,246,0.2)",
+                      borderRadius: 16,
+                      paddingVertical: 16,
+                      paddingHorizontal: 18,
+                    }}
+                  >
+                    <View
+                      style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 14,
+                        backgroundColor: "rgba(139,92,246,0.12)",
+                        borderWidth: 1,
+                        borderColor: "rgba(139,92,246,0.25)",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <Ionicons name="images-outline" size={22} color="#c4b5fd" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+                        Choose from Library
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: "rgba(255,255,255,0.35)",
+                          marginTop: 2,
+                        }}
+                      >
+                        Pick an existing photo from your gallery
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.2)" />
+                  </TouchableOpacity>
+
+                  {/* Upload in progress overlay */}
+                  {uploading && (
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 10,
+                        paddingVertical: 14,
+                      }}
+                    >
+                      <ActivityIndicator size="small" color="#6366f1" />
+                      <Text
+                        style={{
+                          color: "rgba(255,255,255,0.5)",
+                          fontSize: 13,
+                          fontWeight: "600",
+                        }}
+                      >
+                        Uploading…
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </Animated.View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };

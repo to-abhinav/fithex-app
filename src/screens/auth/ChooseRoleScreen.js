@@ -109,7 +109,7 @@ const BorderBeam = () => {
   );
 };
 
-// ─── Role Card ────────────────────────────────────────────────────────────────
+// ─── Role Card --─
 const RoleCard = ({ icon, emoji, title, subtitle, features, selected, onPress, gradientColors, delay = 0 }) => {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);

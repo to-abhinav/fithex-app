@@ -108,7 +108,7 @@ const LiquidRipple = ({ triggerRef, color }) => {
   );
 };
 
-// ─── Component ───────────────────────────────────────────────────────────────
+// ─── Component --
 
 const BottomNavBar = ({ activeRoute, onTabPress }) => {
   const insets = useSafeAreaInsets();
