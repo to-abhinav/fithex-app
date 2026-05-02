@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import {
   View,
@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import { getGymById } from "../../api/gymService";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -526,64 +527,7 @@ const CoverImage = ({ uri }) => {
   );
 };
 
-// ─── Mock Gym Data (swap for real API call) ───────────────────────────────────
-const MOCK_GYM = {
-  _id: "gym001",
-  name: "IronEdge Fitness",
-  description:
-    "Mumbai's premier training facility with state-of-the-art equipment, expert personal trainers, and a community that pushes you to your limits. Train harder. Recover smarter. Achieve more.",
-  contactNumber: "+91 98765 43210",
-  whatsappNumber: "+91 98765 43210",
-  email: "info@ironedgefitness.com",
-  website: "https://ironedgefitness.com",
-  address: {
-    street: "42 Marine Drive",
-    city: "Mumbai",
-    state: "Maharashtra",
-    pincode: "400001",
-  },
-  images: {
-    profile: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=200",
-    cover: "https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800",
-    gallery: [
-      "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=600",
-      "https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=600",
-      "https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600",
-      "https://images.unsplash.com/photo-1594381898411-846e7d193883?w=600",
-      "https://images.unsplash.com/photo-1576678927484-cc907957088c?w=600",
-    ],
-  },
-  amenities: ["AC", "Parking", "Locker", "Shower", "Cardio", "Crossfit", "Personal Trainer", "WiFi", "Protein Bar"],
-  timings: [
-    { day: "Monday",    openTime: "05:30", closeTime: "23:00", isClosed: false },
-    { day: "Tuesday",   openTime: "05:30", closeTime: "23:00", isClosed: false },
-    { day: "Wednesday", openTime: "05:30", closeTime: "23:00", isClosed: false },
-    { day: "Thursday",  openTime: "05:30", closeTime: "23:00", isClosed: false },
-    { day: "Friday",    openTime: "05:30", closeTime: "22:00", isClosed: false },
-    { day: "Saturday",  openTime: "07:00", closeTime: "21:00", isClosed: false },
-    { day: "Sunday",    openTime: "08:00", closeTime: "18:00", isClosed: false },
-  ],
-  maxCapacity: 120,
-  currentMembers: 68,
-  rating: { average: 4.6, totalReviews: 238 },
-  isVerified: true,
-  isFeatured: true,
-  isActive: true,
-  // ── New schema fields ──────────────────────────────────────────────────────
-  socialLinks: {
-    instagram: "https://instagram.com/ironedgefitness",
-    facebook:  "https://facebook.com/ironedgefitness",
-    youtube:   "https://youtube.com/@ironedgefitness",
-  },
-  equipment: [
-    "Treadmill", "Elliptical", "Rowing Machine", "Stationary Bike",
-    "Barbell", "Dumbbells", "Kettlebells", "Pull-up Bar",
-    "Cable Machine", "Leg Press", "Smith Machine", "Battle Ropes",
-    "Boxing Bag", "Resistance Bands",
-  ],
-  genderPolicy: "Unisex",
-  minimumAge: 16,
-};
+
 
 // ─── Helpers --───
 const todayDayName = () =>
@@ -606,25 +550,40 @@ const isGymOpen = (timings) => {
 const GymInfoScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
+  const gymId = route.params?.gymId;
 
-  // In production: const gymId = route.params?.gymId;
-  // then fetch from API. For now we use mock data.
   const [gym, setGym] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [activeTab, setActiveTab] = useState("info"); // info | timings | gallery
 
-  useEffect(() => {
-    // Simulate API fetch
-    const t = setTimeout(() => {
-      setGym(MOCK_GYM);
+  const fetchGym = useCallback(async () => {
+    if (!gymId) {
+      setError("No gym ID provided");
       setLoading(false);
-    }, 900);
-    return () => clearTimeout(t);
-  }, []);
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getGymById(gymId);
+      setGym(data);
+    } catch (err) {
+      const msg =
+        err.response?.data?.message || err.message || "Failed to load gym";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [gymId]);
 
-  // ── Loading --──
+  useEffect(() => {
+    fetchGym();
+  }, [fetchGym]);
+
+  // ── Loading ──
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>
@@ -633,6 +592,32 @@ const GymInfoScreen = () => {
         <Text style={{ color: "rgba(255,255,255,0.3)", fontSize: 13, marginTop: 14, fontWeight: "500" }}>
           Loading gym info…
         </Text>
+      </View>
+    );
+  }
+
+  if (error || !gym) {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+        <StatusBar barStyle="light-content" />
+        <Ionicons name="alert-circle-outline" size={48} color="#f87171" />
+        <Text style={{ color: "#f87171", fontSize: 15, fontWeight: "700", marginTop: 14, textAlign: "center" }}>
+          {error || "Gym not found"}
+        </Text>
+        <TouchableOpacity
+          onPress={fetchGym}
+          activeOpacity={0.85}
+          style={{
+            marginTop: 20, paddingHorizontal: 28, paddingVertical: 12,
+            borderRadius: 14, backgroundColor: "rgba(99,102,241,0.15)",
+            borderWidth: 1, borderColor: "rgba(99,102,241,0.3)",
+          }}
+        >
+          <Text style={{ color: "#a5b4fc", fontWeight: "700", fontSize: 14 }}>Retry</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ marginTop: 14 }}>
+          <Text style={{ color: "rgba(255,255,255,0.35)", fontSize: 13 }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -648,14 +633,14 @@ const GymInfoScreen = () => {
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
       <StatusBar barStyle="light-content" />
 
-      {/* ── Background gradient ─────────────────────────────────────────────── */}
+      {/* ── Background gradient  */}
       <LinearGradient
         colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.1)", "rgba(0,0,0,0)"]}
         locations={[0, 0.5, 1]}
         style={{ position: "absolute", top: 0, left: 0, right: 0, height: 400 }}
       />
 
-      {/* ── Glow Orbs ──────────────────────────────────────────────────────── */}
+      {/* ── Glow Orbs  */}
       <GlowOrb size={280} color="rgba(99,102,241,0.12)" top={-60} left={SCREEN_WIDTH / 2 - 140} delay={0} />
       <GlowOrb size={200} color="rgba(139,92,246,0.09)" top={300} left={-70} delay={1000} />
       <GlowOrb size={160} color="rgba(6,182,212,0.07)" top={600} left={SCREEN_WIDTH - 100} delay={2000} />
@@ -665,7 +650,7 @@ const GymInfoScreen = () => {
         contentContainerStyle={{ paddingBottom: 60 }}
         stickyHeaderIndices={[2]} // makes the tab bar sticky
       >
-        {/* ── Top Navigation Bar ──────────────────────────────────────────── */}
+        {/* ── Top Navigation Bar  */}
         <Animated.View
           entering={FadeInDown.delay(0).duration(500)}
           style={{
