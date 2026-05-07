@@ -12,7 +12,8 @@ import GymLogScreen from "../screens/dashboard/GymLogScreen";
 import GymPlansScreen from "../screens/dashboard/GymPlansScreen";
 import PaymentScreen from "../screens/payment/PaymentScreen";
 import PaymentSuccess from "../screens/payment/PaymentSuccess";
-import MainTabNavigator from "./MainTabNavigator";
+import MemberTabNavigator from "./MemberTabNavigator";
+import OwnerTabNavigator  from "./OwnerTabNavigator";
 
 const Stack = createNativeStackNavigator();
 
@@ -20,11 +21,12 @@ const Stack = createNativeStackNavigator();
 const TESTING = false;
 
 const AppNavigator = () => {
-  const { isLoading, isSignedIn } = useAuth();
+  const { isLoading, isSignedIn, userRole } = useAuth();
 
   if (TESTING) {
     return (
       <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Main" component={MemberTabNavigator} />
         <Stack.Screen name="GymLog" component={GymLogScreen} />
         <Stack.Screen name="Weight" component={WeightScreen} />
         <Stack.Screen name="GymInfo" component={GymInfoScreen} />
@@ -35,7 +37,6 @@ const AppNavigator = () => {
           component={PaymentSuccess}
           options={{ gestureEnabled: false }}
         />
-        <Stack.Screen name="Main" component={MainTabNavigator} />
       </Stack.Navigator>
     );
   }
@@ -48,7 +49,10 @@ const AppNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {isSignedIn ? (
         <>
-          <Stack.Screen name="Main" component={MainTabNavigator} />
+          <Stack.Screen
+            name="Main"
+            component={userRole === 'owner' ? OwnerTabNavigator : MemberTabNavigator}
+          />
           <Stack.Screen name="GymInfo"  component={GymInfoScreen}  />
           <Stack.Screen name="GymPlans" component={GymPlansScreen} />
           <Stack.Screen name="Payment"  component={PaymentScreen}  />
@@ -58,7 +62,6 @@ const AppNavigator = () => {
             options={{ gestureEnabled: false }}
           />
           <Stack.Screen name="GymLog" component={GymLogScreen} />
-          
         </>
       ) : (
         <>
