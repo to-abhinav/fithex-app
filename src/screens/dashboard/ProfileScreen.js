@@ -246,16 +246,14 @@ const SettingsRow = ({ icon, label, value, onPress, danger, delay }) => (
   </Animated.View>
 );
 
-// ─── Default fallback avatar ────────────────────────────────────────────────
 const DEFAULT_AVATAR = "https://res.cloudinary.com/dlkre2bxo/image/upload/f_auto,q_auto/v1777577974/avatar_1.png";
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { signOut } = useAuth();
+  const { signOut, userRole } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ── Image Picker State ──────────────────────────────────────────────────
   const [showPicker, setShowPicker] = useState(false);
   const [pickerTab, setPickerTab] = useState("avatar"); // "avatar" | "upload"
   const [avatars, setAvatars] = useState([]);
@@ -277,7 +275,6 @@ const ProfileScreen = () => {
     }
   };
 
-  // ── Fetch preset avatars ──────────────────────────────────────────────────
   const fetchAvatars = useCallback(async () => {
     try {
       const res = await api.get("/users/avatars");
@@ -635,54 +632,55 @@ const ProfileScreen = () => {
           />
         </View>
 
-        <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
-          <View
-            style={{
-              backgroundColor: "rgba(255,255,255,0.03)",
-              borderWidth: 1,
-              borderColor: "rgba(255,255,255,0.07)",
-              borderRadius: 20,
-              padding: 18,
-            }}
-          >
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <Ionicons name="trophy-outline" size={16} color="#a5b4fc" />
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
-                  Weekly Goal
-                </Text>
-              </View>
-              <Text style={{ fontSize: 13, fontWeight: "800", color: "#a5b4fc" }}>— / {user?.numberOfWorkoutDay ?? 5}</Text>
-            </View>
-
-            {/* Segmented progress bubbles */}
-            <View style={{ flexDirection: "row", gap: 6, marginBottom: 12 }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <View
-                  key={i}
-                  style={{ flex: 1, height: 6, borderRadius: 4, overflow: "hidden" }}
-                >
-                  {i <= 3 ? (
-                    <LinearGradient
-                      colors={["#6366f1", "#8b5cf6"]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={{ flex: 1 }}
-                    />
-                  ) : (
-                    <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.08)" }} />
-                  )}
+        {userRole !== 'owner' && (
+          <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
+            <View
+              style={{
+                backgroundColor: "rgba(255,255,255,0.03)",
+                borderWidth: 1,
+                borderColor: "rgba(255,255,255,0.07)",
+                borderRadius: 20,
+                padding: 18,
+              }}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <Ionicons name="trophy-outline" size={16} color="#a5b4fc" />
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: "rgba(255,255,255,0.85)" }}>
+                    Weekly Goal
+                  </Text>
                 </View>
-              ))}
+                <Text style={{ fontSize: 13, fontWeight: "800", color: "#a5b4fc" }}>— / {user?.numberOfWorkoutDay ?? 5}</Text>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 6, marginBottom: 12 }}>
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <View
+                    key={i}
+                    style={{ flex: 1, height: 6, borderRadius: 4, overflow: "hidden" }}
+                  >
+                    {i <= 3 ? (
+                      <LinearGradient
+                        colors={["#6366f1", "#8b5cf6"]}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{ flex: 1 }}
+                      />
+                    ) : (
+                      <View style={{ flex: 1, backgroundColor: "rgba(255,255,255,0.08)" }} />
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
+                2 more workouts to crush your goal this week
+              </Text>
             </View>
+          </Animated.View>
+        )}
 
-            <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "500" }}>
-              2 more workouts to crush your goal this week
-            </Text>
-          </View>
-        </Animated.View>
-
-        {/* ── Membership Plan Card ─────────────────────────────────────────── */}
+        {userRole !== 'owner' && (
         <Animated.View entering={FadeInDown.delay(580).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <LinearGradient
             colors={["rgba(99,102,241,0.25)", "rgba(139,92,246,0.18)", "rgba(6,182,212,0.12)"]}
@@ -764,8 +762,10 @@ const ProfileScreen = () => {
             </TouchableOpacity>
           </LinearGradient>
         </Animated.View>
+        )}
 
-        {/* ── Recent Activity ──────────────────────────────────────────────── */}
+        {/* ── Recent Activity — member only ────────────────────────────────── */}
+        {userRole !== 'owner' && (
         <Animated.View entering={FadeInDown.delay(620).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <View
             style={{
@@ -791,8 +791,9 @@ const ProfileScreen = () => {
             <ActivityItem iconName="bicycle-outline" title="Cycling" subtitle="3 days ago · 12 km" badge="+440 kcal" badgeColor="rgba(6,182,212,0.12)" delay={770} />
           </View>
         </Animated.View>
+        )}
 
-        {/* ── CTA Buttons ──────────────────────────────────────────────────── */}
+        {userRole !== 'owner' && (
         <Animated.View
           entering={FadeInDown.delay(660).springify()}
           style={{ flexDirection: "row", gap: 12, paddingHorizontal: 20, marginBottom: 14 }}
@@ -839,8 +840,54 @@ const ProfileScreen = () => {
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
+        )}
 
-        {/* ── Settings Menu ────────────────────────────────────────────────── */}
+        {userRole === 'owner' && (
+          <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
+            <View
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.03)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.07)',
+                borderRadius: 20,
+                paddingHorizontal: 18,
+                paddingTop: 6,
+                paddingBottom: 6,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 10,
+                  color: 'rgba(255,255,255,0.25)',
+                  textTransform: 'uppercase',
+                  letterSpacing: 1.5,
+                  fontWeight: '700',
+                  paddingTop: 14,
+                  paddingBottom: 6,
+                }}
+              >
+                Gym Management
+              </Text>
+
+              <SettingsRow
+                icon="business-outline"
+                label="My Gym"
+                onPress={() => navigation.navigate('Main', { screen: 'MyGym' })}
+                delay={520}
+              />
+
+              {user?.gymId && (
+                <SettingsRow
+                  icon="shield-checkmark-outline"
+                  label="Gym Status"
+                  value="Active"
+                  delay={540}
+                />
+              )}
+            </View>
+          </Animated.View>
+        )}
+
         <Animated.View entering={FadeInDown.delay(700).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <View
             style={{

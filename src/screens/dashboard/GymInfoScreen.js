@@ -13,6 +13,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  StyleSheet,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -625,8 +626,8 @@ const GymInfoScreen = () => {
   const open = isGymOpen(gym.timings);
   const todayTiming = gym.timings.find((t) => t.day === todayDayName());
   const allImages = [
-    ...(gym.images.cover ? [gym.images.cover] : []),
-    ...gym.images.gallery,
+    ...(gym?.images?.cover ? [gym.images.cover] : []),
+    ...(gym?.images?.gallery || []),
   ];
 
   return (
@@ -1146,6 +1147,100 @@ const GymInfoScreen = () => {
               </Animated.View>
             )}
 
+            {/* Gym Owner Profile */}
+            {gym.ownerId && (
+              <Animated.View
+                entering={FadeInDown.delay(680).springify()}
+                style={{
+                  backgroundColor: "rgba(255,255,255,0.03)",
+                  borderWidth: 1, borderColor: "rgba(255,255,255,0.07)",
+                  borderRadius: 20, padding: 18, marginBottom: 14,
+                  overflow: "hidden",
+                }}
+              >
+                {/* Subtle gradient accent */}
+                <LinearGradient
+                  colors={["rgba(99,102,241,0.15)", "rgba(139,92,246,0.08)", "transparent"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{ position: "absolute", top: 0, left: 0, right: 0, height: 70, borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+                />
+
+                <SectionHeader icon="person-circle-outline" title="Gym Owner" delay={680} />
+
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 14, marginBottom: 14 }}>
+                  {/* Owner avatar */}
+                  <LinearGradient
+                    colors={["#6366f1", "#8b5cf6", "#06b6d4"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{ width: 62, height: 62, borderRadius: 31, alignItems: "center", justifyContent: "center" }}
+                  >
+                    {gym.ownerId.profileImage ? (
+                      <Image
+                        source={{ uri: gym.ownerId.profileImage }}
+                        style={{ width: 55, height: 55, borderRadius: 27.5, borderWidth: 2, borderColor: "#09090f" }}
+                      />
+                    ) : (
+                      <View style={{ width: 55, height: 55, borderRadius: 27.5, backgroundColor: "#09090f", borderWidth: 2, borderColor: "#09090f", alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="person" size={24} color="rgba(165,180,252,0.6)" />
+                      </View>
+                    )}
+                  </LinearGradient>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "800", color: "#fff", letterSpacing: -0.3 }}>
+                      {gym.ownerId.name || "Gym Owner"}
+                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 }}>
+                      <View style={{
+                        backgroundColor: "rgba(99,102,241,0.15)",
+                        borderWidth: 1, borderColor: "rgba(99,102,241,0.25)",
+                        borderRadius: 12, paddingHorizontal: 8, paddingVertical: 3,
+                        flexDirection: "row", alignItems: "center", gap: 4,
+                      }}>
+                        <Ionicons name="shield-checkmark" size={10} color="#a5b4fc" />
+                        <Text style={{ fontSize: 10, fontWeight: "700", color: "#a5b4fc" }}>Owner</Text>
+                      </View>
+                      {gym.ownerId.createdAt && (
+                        <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", fontWeight: "400" }}>
+                          · Since {new Date(gym.ownerId.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </View>
+
+                {/* Contact details */}
+                <View style={{ borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)", paddingTop: 12, gap: 8 }}>
+                  {gym.ownerId.email && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => Linking.openURL(`mailto:${gym.ownerId.email}`)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+                    >
+                      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: "rgba(99,102,241,0.12)", alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="mail-outline" size={14} color="#a5b4fc" />
+                      </View>
+                      <Text style={{ fontSize: 13, color: "#a5b4fc", fontWeight: "500" }}>{gym.ownerId.email}</Text>
+                    </TouchableOpacity>
+                  )}
+                  {gym.ownerId.phone && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => Linking.openURL(`tel:${gym.ownerId.phone}`)}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+                    >
+                      <View style={{ width: 30, height: 30, borderRadius: 8, backgroundColor: "rgba(6,182,212,0.12)", alignItems: "center", justifyContent: "center" }}>
+                        <Ionicons name="call-outline" size={14} color="#67e8f9" />
+                      </View>
+                      <Text style={{ fontSize: 13, color: "#67e8f9", fontWeight: "500" }}>{gym.ownerId.phone}</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </Animated.View>
+            )}
+
             {/* Membership CTA */}
             <Animated.View entering={FadeInDown.delay(700).springify()} style={{ marginBottom: 14 }}>
               <LinearGradient
@@ -1187,9 +1282,7 @@ const GymInfoScreen = () => {
           </View>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── TIMINGS TAB ─────────────────────────────────────────────────── */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
+     
         {activeTab === "timings" && (
           <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
 
@@ -1271,9 +1364,7 @@ const GymInfoScreen = () => {
           </View>
         )}
 
-        {/* ════════════════════════════════════════════════════════════════════ */}
-        {/* ── GALLERY TAB ─────────────────────────────────────────────────── */}
-        {/* ════════════════════════════════════════════════════════════════════ */}
+ 
         {activeTab === "gallery" && (
           <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
             {allImages.length === 0 ? (
