@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import api from "../../api/axios";
 import { colors } from "../../theme";
+import { useToast } from "../../context/ToastContext";
 import {
   View,
   Text,
@@ -438,6 +439,7 @@ const HistoryItem = ({ entry, prevWeight, onDelete, delay }) => {
 // ─── Main Screen --
 const WeightScreen = () => {
   const navigation = useNavigation();
+  const toast = useToast();
 
   const [entries, setEntries] = useState([]);
   const [modalVisible, setModalVisible] = useState(false);
@@ -599,7 +601,7 @@ const WeightScreen = () => {
   const addEntry = async () => {
     const w = parseFloat(inputWeight);
     if (isNaN(w) || w < 20 || w > 500) {
-      Alert.alert("Invalid Weight", "Please enter a valid weight between 20 and 500 kg.");
+      toast.warning("Please enter a valid weight between 20 and 500 kg.");
       return;
     }
     try {
@@ -612,7 +614,7 @@ const WeightScreen = () => {
       fetchData();
     } catch (err) {
       const msg = err.response?.data?.message || err.message;
-      Alert.alert("Error", msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -629,7 +631,7 @@ const WeightScreen = () => {
             await api.delete(`/weight/${id}`);
             fetchData();
           } catch (err) {
-            Alert.alert("Error", err.response?.data?.message || "Failed to delete");
+            toast.error(err.response?.data?.message || "Failed to delete");
           }
         },
       },
@@ -639,7 +641,7 @@ const WeightScreen = () => {
   const saveGoal = async () => {
     const g = parseFloat(goalInput);
     if (isNaN(g) || g < 20 || g > 400) {
-      Alert.alert("Invalid Goal", "Enter a realistic weight goal.");
+      toast.warning("Enter a realistic weight goal.");
       return;
     }
     // Re-log current weight with updated goalWeight so the backend persists it
