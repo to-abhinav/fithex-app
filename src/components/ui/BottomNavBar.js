@@ -110,19 +110,20 @@ const LiquidRipple = ({ triggerRef, color }) => {
 
 // ─── Component --
 
-const BottomNavBar = ({ activeRoute, onTabPress }) => {
+const BottomNavBar = ({ activeRoute, onTabPress, tabs: tabsProp }) => {
+  const tabs = tabsProp ?? TABS;
   const insets = useSafeAreaInsets();
 
   const animations = useRef(
-    TABS.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
+    tabs.map((_, i) => new Animated.Value(i === 0 ? 1 : 0))
   ).current;
 
-  const rippleRefs = useRef(TABS.map(() => ({ current: null }))).current;
+  const rippleRefs = useRef(tabs.map(() => ({ current: null }))).current;
 
-  const activeIndex = TABS.findIndex((t) => t.id === activeRoute);
+  const activeIndex = tabs.findIndex((t) => t.id === activeRoute);
 
   useEffect(() => {
-    const idx = TABS.findIndex((t) => t.id === activeRoute);
+    const idx = tabs.findIndex((t) => t.id === activeRoute);
     if (idx === -1) return;
 
     const anims = animations.map((anim, i) =>
@@ -149,7 +150,7 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
       ]}
     >
       <View style={styles.bar}>
-        {TABS.map((tab, i) => {
+        {tabs.map((tab, i) => {
           const anim = animations[i];
           const isActive = i === activeIndex;
 
@@ -197,7 +198,19 @@ const BottomNavBar = ({ activeRoute, onTabPress }) => {
                 accessibilityRole="button"
                 accessibilityLabel={tab.label}
               >
-                <tab.Icon color={iconColor} />
+                <View style={{ position: 'relative' }}>
+                  <tab.Icon color={iconColor} />
+                  {tab.badgeDot && (
+                    <View style={styles.navDot} />
+                  )}
+                  {!tab.badgeDot && tab.badge > 0 && (
+                    <View style={styles.navBadge}>
+                      <Text style={styles.navBadgeText}>
+                        {tab.badge > 99 ? '99+' : tab.badge}
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <Animated.View
                   style={{
                     overflow: 'hidden',
@@ -271,6 +284,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: 0.4,
+  },
+  navBadge: {
+    position: 'absolute',
+    top: -6,
+    right: -8,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#F87171',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#1A1A28',
+  },
+  navBadgeText: {
+    fontSize: 9,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  navDot: {
+    position: 'absolute',
+    top: -3,
+    right: -3,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#F87171',
+    borderWidth: 2,
+    borderColor: '#1A1A28',
   },
 });
 
