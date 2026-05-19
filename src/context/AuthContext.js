@@ -12,8 +12,9 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [isLoading, setIsLoading] = useState(true); // splash / bootstrap phase
+  const [isLoading, setIsLoading] = useState(true);
   const [userToken, setUserToken] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
     const bootstrapAuth = async () => {
@@ -24,13 +25,17 @@ export const AuthProvider = ({ children }) => {
           const res = await api.get("/auth/me");
           if (res.status === 200) {
             setUserToken(token);
+
+            setUserRole(res.data?.role ?? null);
           } else {
             await SecureStore.deleteItemAsync("token");
+            setUserRole(null);
           }
         }
       } catch (err) {
         console.log("Auth bootstrap failed:", err.message);
         await SecureStore.deleteItemAsync("token").catch(() => {});
+        setUserRole(null);
       } finally {
         setIsLoading(false);
       }
@@ -42,17 +47,25 @@ export const AuthProvider = ({ children }) => {
   const signIn = useCallback(async (token) => {
     await SecureStore.setItemAsync("token", token);
     setUserToken(token);
+    try {
+      const res = await api.get("/auth/me");
+      setUserRole(res.data?.role ?? null);
+    } catch {
+      setUserRole(null);
+    }
   }, []);
 
   const signOut = useCallback(async () => {
     await SecureStore.deleteItemAsync("token");
     setUserToken(null);
+    setUserRole(null);
   }, []);
 
   const value = {
     isLoading,
     userToken,
     isSignedIn: !!userToken,
+    userRole,
     signIn,
     signOut,
   };
