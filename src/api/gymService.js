@@ -1,5 +1,14 @@
 import api from "./axios";
 
+// Member side request status 
+export const getMyRequest = () =>
+  api.get("/requests/mine").then((r) => r.data);
+
+export const cancelMyRequest = (id) =>
+  api.put(`/requests/${id}/cancel`).then((r) => r.data);
+
+
+
 export const getNearbyGyms = ({ longitude, latitude, radius = 10 }) =>
   api
     .get("/gyms/nearby", { params: { longitude, latitude, radius } })
@@ -14,12 +23,12 @@ export const searchGyms = ({ q, city }) =>
 export const getGymById = (id) =>
   api.get(`/gyms/${id}`).then((r) => r.data);
 
-// ── Public plans for a gym ─────────────────────────────────────────────────
+// Public plans for a gym 
 
 export const getGymPlans = (gymId) =>
   api.get(`/plans/gym/${gymId}`).then((r) => r.data);
 
-// ── Owner-side gym management ──────────────────────────────────────────────
+// Owner-side gym management 
 
 export const getMyGym = () =>
   api.get("/gyms/owner/mine").then((r) => r.data);
