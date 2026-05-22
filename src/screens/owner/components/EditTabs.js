@@ -165,7 +165,7 @@ const EditTabs = ({ gym, onGymUpdated }) => {
     setToastMessage(null);
   }, []);
 
-  // ── Save: Details ───────────────────────────────────────────────────────
+  // ── Save: Details 
   const saveDetails = useCallback(async () => {
     Keyboard.dismiss();
     setSaveError(null);
@@ -195,7 +195,7 @@ const EditTabs = ({ gym, onGymUpdated }) => {
     }
   }, [gym._id, formData, showToast, onGymUpdated]);
 
-  // ── Save: Location ──────────────────────────────────────────────────────
+  // ── Save: Location 
   const saveLocation = useCallback(async () => {
     Keyboard.dismiss();
     setSaveError(null);
@@ -228,7 +228,7 @@ const EditTabs = ({ gym, onGymUpdated }) => {
     }
   }, [gym._id, formData, showToast, onGymUpdated]);
 
-  // ── Save: Amenities ─────────────────────────────────────────────────────
+  // ── Save: Amenities 
   const saveAmenities = useCallback(async () => {
     Keyboard.dismiss();
     setSaveError(null);
@@ -276,7 +276,7 @@ const EditTabs = ({ gym, onGymUpdated }) => {
     }
   }, [gym._id, formData.timings, showToast, onGymUpdated]);
 
-  // ── Pick & Upload Image ─────────────────────────────────────────────────
+  // ── Pick & Upload Image 
   const pickAndUploadImage = useCallback(
     async (type) => {
       const isProfile = type === "profile";
@@ -320,7 +320,7 @@ const EditTabs = ({ gym, onGymUpdated }) => {
     [gym._id, showToast, onGymUpdated]
   );
 
-  // ── Pick & Upload Gallery Images ───────────────────────────────────────
+  // ── Pick & Upload Gallery Images 
   const pickAndUploadGallery = useCallback(async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
