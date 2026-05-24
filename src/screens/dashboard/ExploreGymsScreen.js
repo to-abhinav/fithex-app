@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigation } from "@react-navigation/native";
 import * as Location from "expo-location";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getNearbyGyms } from "../../api/gymService";
 import {
   View,
@@ -38,7 +39,6 @@ import Animated, {
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const CARD_WIDTH = SCREEN_WIDTH - 40;
 
-// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.2);
   useEffect(() => {
@@ -68,7 +68,6 @@ const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   );
 };
 
-// ─── Star Rating ──────────────────────────────────────────────────────────────
 const StarRating = ({ rating, size = 12 }) => (
   <View style={{ flexDirection: "row", gap: 1 }}>
     {[1, 2, 3, 4, 5].map((star) => (
@@ -88,7 +87,6 @@ const StarRating = ({ rating, size = 12 }) => (
   </View>
 );
 
-// ─── Distance Badge ────────────────────────────────────────────────────────────
 const DistanceBadge = ({ distance }) => (
   <View
     style={{
@@ -108,7 +106,6 @@ const DistanceBadge = ({ distance }) => (
   </View>
 );
 
-// ─── Amenity Icon Strip ────────────────────────────────────────────────────────
 const AMENITY_META = {
   AC: { icon: "snow-outline", color: "#38bdf8" },
   Parking: { icon: "car-outline", color: "#a78bfa" },
@@ -146,7 +143,6 @@ const AmenityIcon = ({ name }) => {
   );
 };
 
-// ─── Occupancy Indicator ──────────────────────────────────────────────────────
 const OccupancyIndicator = ({ current, max }) => {
   const pct = Math.min((current / max) * 100, 100);
   const color = pct < 50 ? "#10b981" : pct < 80 ? "#fbbf24" : "#f87171";
@@ -159,7 +155,6 @@ const OccupancyIndicator = ({ current, max }) => {
   );
 };
 
-// ─── Price Tier --
 const PriceTier = ({ tier }) => {
   const tiers = ["₹", "₹₹", "₹₹₹"];
   return (
@@ -180,7 +175,6 @@ const PriceTier = ({ tier }) => {
   );
 };
 
-// ─── Gym Card --──
 const GymCard = ({ gym, index, onPress, onSave }) => {
   const [saved, setSaved] = useState(gym.isSaved || false);
   const [imgLoaded, setImgLoaded] = useState(false);
@@ -619,9 +613,12 @@ const ExploreGymsScreen = () => {
   const navigation = useNavigation();
   const [gyms, setGyms] = useState([]);
   const [filtered, setFiltered] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  // true = location permission granted and gyms loaded/loading
+  const [locationGranted, setLocationGranted] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);       // "denied" | "error" | null
+  const [error, setError] = useState(null);       // "network" | null
+  const [permissionDenied, setPermissionDenied] = useState(false); // hint on explain screen
   const [search, setSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState([]);
   const [sortBy, setSortBy] = useState("distance");
@@ -635,36 +632,27 @@ const ExploreGymsScreen = () => {
     new Date().getDay()
   ];
 
-  // ─── Fetch location → API 
+  // ─── Load gyms (assumes location permission is already granted) ─────────
   const loadGyms = useCallback(async () => {
     try {
-      // 1. Request permission
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        setError("denied");
-        setLoading(false);
-        return;
-      }
-
-      // 2. Get device coordinates
+      // 1. Get device coordinates
       const loc = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       const { latitude, longitude } = loc.coords;
       coordsRef.current = { latitude, longitude };
 
-      // 3. Reverse-geocode for city label
+      // 2. Reverse-geocode for city label
       try {
         const [place] = await Location.reverseGeocodeAsync({ latitude, longitude });
         if (place?.city) setCityLabel(place.city);
         else if (place?.region) setCityLabel(place.region);
-      } catch {
-      }
+      } catch {}
 
-      // 4. Call backend
+      // 3. Call backend
       const data = await getNearbyGyms({ longitude, latitude, radius: 10 });
 
-      // 5. Attach client-side distance
+      // 4. Attach client-side distance
       const withDistance = (data.gyms || []).map((gym) => {
         const [gymLng, gymLat] = gym.location?.coordinates || [longitude, latitude];
         return {
@@ -677,14 +665,54 @@ const ExploreGymsScreen = () => {
       setError(null);
     } catch (err) {
       console.error("[ExploreGyms] load failed:", err.message);
-      setError("error");
+      setError("network");
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const requestLocationAndLoad = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setPermissionDenied(true);
+        setLocationGranted(false);
+        setLoading(false);
+        return;
+      }
+      setPermissionDenied(false);
+      setLocationGranted(true);
+      try { await AsyncStorage.setItem("exploreGyms_locationGranted", "true"); } catch {}
+      await loadGyms();
+    } catch (err) {
+      console.error("[ExploreGyms] permission/load failed:", err.message);
+      setError("network");
+      setLoading(false);
+    }
+  }, [loadGyms]);
+
   useEffect(() => {
-    loadGyms();
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await AsyncStorage.getItem("exploreGyms_locationGranted");
+        if (!saved) {
+          return;
+        }
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (cancelled) return;
+        if (status === "granted") {
+          setLocationGranted(true);
+          setLoading(true);
+          loadGyms();
+        } else {
+          await AsyncStorage.removeItem("exploreGyms_locationGranted");
+        }
+      } catch (err) {
+        console.log("[ExploreGyms] mount check failed:", err.message);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -753,12 +781,13 @@ const ExploreGymsScreen = () => {
   }).length;
 
   // ─── Loading ──────────────────────────────────────────────────────────────
+  // Must come BEFORE the explain screen check so spinner shows during permission request
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center" }}>
         <StatusBar barStyle="light-content" />
         <LinearGradient
-          colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.1)", "rgba(0,0,0,0)"]}
+          colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.1)", "rgba(0,0,0,0)"]} 
           style={{ position: "absolute", top: 0, left: 0, right: 0, height: 400 }}
         />
         <Animated.View entering={ZoomIn.springify()}>
@@ -782,62 +811,274 @@ const ExploreGymsScreen = () => {
     );
   }
 
-  // ─── Error / Permission Denied 
-  if (error) {
-    const isDenied = error === "denied";
+  if (!locationGranted) {
     return (
-      <View style={{ flex: 1, backgroundColor: "#09090f", alignItems: "center", justifyContent: "center", paddingHorizontal: 32 }}>
+      <View style={{ flex: 1, backgroundColor: "#09090f" }}>
         <StatusBar barStyle="light-content" />
+
+        {/* Background gradients */}
         <LinearGradient
-          colors={["rgba(99,102,241,0.3)", "rgba(139,92,246,0.1)", "rgba(0,0,0,0)"]}
-          style={{ position: "absolute", top: 0, left: 0, right: 0, height: 400 }}
+          colors={["rgba(99,102,241,0.35)", "rgba(139,92,246,0.12)", "rgba(0,0,0,0)"]}
+          style={{ position: "absolute", top: 0, left: 0, right: 0, height: 420 }}
         />
-        <Animated.View entering={ZoomIn.springify()}>
-          <LinearGradient
-            colors={isDenied ? ["#f87171", "#ef4444"] : ["#fbbf24", "#f59e0b"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{ width: 72, height: 72, borderRadius: 22, alignItems: "center", justifyContent: "center", marginBottom: 20 }}
+        <LinearGradient
+          colors={["rgba(0,0,0,0)", "rgba(6,182,212,0.08)", "rgba(0,0,0,0)"]}
+          style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 300 }}
+        />
+
+        {/* Glow orbs for ambience */}
+        <GlowOrb size={280} color="rgba(99,102,241,0.15)" top={-60} left={SCREEN_WIDTH / 2 - 140} delay={0} />
+        <GlowOrb size={200} color="rgba(139,92,246,0.1)" top={SCREEN_HEIGHT - 320} left={-60} delay={1000} />
+        <GlowOrb size={160} color="rgba(6,182,212,0.07)" top={SCREEN_HEIGHT - 200} left={SCREEN_WIDTH - 80} delay={2000} />
+
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 28 }}>
+
+          {/* Animated icon */}
+          <Animated.View entering={ZoomIn.springify()} style={{ marginBottom: 28 }}>
+            <LinearGradient
+              colors={permissionDenied ? ["#f87171", "#ef4444"] : ["#6366f1", "#8b5cf6"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={{
+                width: 96,
+                height: 96,
+                borderRadius: 30,
+                alignItems: "center",
+                justifyContent: "center",
+                shadowColor: permissionDenied ? "#f87171" : "#6366f1",
+                shadowOffset: { width: 0, height: 8 },
+                shadowOpacity: 0.6,
+                shadowRadius: 20,
+                elevation: 16,
+              }}
+            >
+              <Ionicons name={permissionDenied ? "location-outline" : "location"} size={44} color="#fff" />
+            </LinearGradient>
+          </Animated.View>
+
+          {/* Headline */}
+          <Animated.Text
+            entering={FadeInDown.delay(120).springify()}
+            style={{ fontSize: 28, fontWeight: "900", color: "#fff", textAlign: "center", letterSpacing: -0.6, marginBottom: 10 }}
           >
-            <Ionicons name={isDenied ? "location-outline" : "cloud-offline-outline"} size={32} color="#fff" />
-          </LinearGradient>
-        </Animated.View>
-        <Text style={{ fontSize: 20, fontWeight: "800", color: "#fff", textAlign: "center", marginBottom: 8 }}>
-          {isDenied ? "Location Access Required" : "Something went wrong"}
-        </Text>
-        <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", textAlign: "center", lineHeight: 20, marginBottom: 24 }}>
-          {isDenied
-            ? "FitHex needs your location to show nearby gyms. Please grant location access in your device settings."
-            : "We couldn't load gyms right now. Check your internet connection and try again."}
-        </Text>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            if (isDenied) {
-              Linking.openSettings();
-            } else {
-              setError(null);
-              setLoading(true);
-              loadGyms();
-            }
-          }}
-          style={{ overflow: "hidden", borderRadius: 14 }}
-        >
-          <LinearGradient
-            colors={["#6366f1", "#8b5cf6"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={{ paddingHorizontal: 32, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8 }}
+            {permissionDenied ? "Location Access Needed" : "Find Gyms Near You"}
+          </Animated.Text>
+
+          <Animated.Text
+            entering={FadeInDown.delay(200).springify()}
+            style={{ fontSize: 15, color: "rgba(255,255,255,0.5)", textAlign: "center", lineHeight: 22, marginBottom: 36 }}
           >
-            <Ionicons name={isDenied ? "settings-outline" : "refresh-outline"} size={16} color="#fff" />
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>
-              {isDenied ? "Open Settings" : "Try Again"}
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
+            {permissionDenied
+              ? "Location permission was denied. FitHex needs your location to discover nearby gyms and show distances."
+              : "FitHex uses your location to show gyms within your area, calculate distances, and sort them by how close they are to you."}
+          </Animated.Text>
+
+          {/* Feature list */}
+          <Animated.View entering={FadeInDown.delay(280).springify()} style={{ width: "100%", gap: 12, marginBottom: 36 }}>
+            {[
+              { icon: "business-outline", color: "#6366f1", text: "Discover gyms within 10 km" },
+              { icon: "navigate-outline", color: "#10b981", text: "See exact distance to each gym" },
+              { icon: "shield-checkmark-outline", color: "#06b6d4", text: "Your location is never stored" },
+            ].map(({ icon, color, text }) => (
+              <View
+                key={text}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 14,
+                  backgroundColor: "rgba(255,255,255,0.04)",
+                  borderWidth: 1,
+                  borderColor: "rgba(255,255,255,0.08)",
+                  borderRadius: 14,
+                  paddingVertical: 13,
+                  paddingHorizontal: 16,
+                }}
+              >
+                <View
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 11,
+                    backgroundColor: `${color}20`,
+                    borderWidth: 1,
+                    borderColor: `${color}35`,
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Ionicons name={icon} size={18} color={color} />
+                </View>
+                <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.75)", fontWeight: "500", flex: 1 }}>
+                  {text}
+                </Text>
+              </View>
+            ))}
+          </Animated.View>
+
+          {/* Primary CTA */}
+          <Animated.View entering={FadeInDown.delay(360).springify()} style={{ width: "100%" }}>
+            {permissionDenied ? (
+              /* After denial — show two buttons: Open Settings + Try Again */
+              <>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => Linking.openSettings()}
+                  style={{ overflow: "hidden", borderRadius: 18, marginBottom: 10 }}
+                >
+                  <LinearGradient
+                    colors={["#6366f1", "#8b5cf6"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      paddingVertical: 16,
+                    }}
+                  >
+                    <Ionicons name="settings-outline" size={20} color="#fff" />
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: -0.2 }}>
+                      Open Settings
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setLoading(true);
+                    requestLocationAndLoad();
+                  }}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    paddingVertical: 14,
+                    borderRadius: 18,
+                    backgroundColor: "rgba(255,255,255,0.06)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.1)",
+                    marginBottom: 12,
+                  }}
+                >
+                  <Ionicons name="refresh-outline" size={18} color="rgba(255,255,255,0.6)" />
+                  <Text style={{ color: "rgba(255,255,255,0.6)", fontWeight: "700", fontSize: 15 }}>
+                    Try Again
+                  </Text>
+                </TouchableOpacity>
+
+                <Text style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 17 }}>
+                  Enable location in your device settings, then tap Try Again.
+                </Text>
+              </>
+            ) : (
+              /* First time — single CTA button */
+              <>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={() => {
+                    setLoading(true);
+                    requestLocationAndLoad();
+                  }}
+                  style={{ overflow: "hidden", borderRadius: 18, marginBottom: 12 }}
+                >
+                  <LinearGradient
+                    colors={["#6366f1", "#8b5cf6"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      paddingVertical: 16,
+                    }}
+                  >
+                    <Ionicons name="location" size={20} color="#fff" />
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 16, letterSpacing: -0.2 }}>
+                      Find Gyms Near Me
+                    </Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <Text style={{ textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.25)", lineHeight: 17 }}>
+                  You'll be asked for location permission by your device.
+                </Text>
+              </>
+            )}
+          </Animated.View>
+        </View>
       </View>
     );
   }
+
+  const NetworkErrorBanner = () => (
+    <Animated.View
+      entering={FadeInDown.springify()}
+      style={{
+        marginHorizontal: 20,
+        marginTop: 8,
+        marginBottom: 14,
+        backgroundColor: "rgba(248,113,113,0.08)",
+        borderWidth: 1,
+        borderColor: "rgba(248,113,113,0.2)",
+        borderRadius: 16,
+        padding: 16,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View
+          style={{
+            width: 40,
+            height: 40,
+            borderRadius: 12,
+            backgroundColor: "rgba(248,113,113,0.15)",
+            borderWidth: 1,
+            borderColor: "rgba(248,113,113,0.3)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Ionicons name="cloud-offline-outline" size={20} color="#f87171" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: "#f87171", marginBottom: 3 }}>
+            Couldn't load gyms
+          </Text>
+          <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", lineHeight: 17 }}>
+            Check your internet connection and try again.
+          </Text>
+        </View>
+      </View>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          setError(null);
+          setLoading(true);
+          requestLocationAndLoad();
+        }}
+        style={{ marginTop: 12, overflow: "hidden", borderRadius: 12 }}
+      >
+        <LinearGradient
+          colors={["#6366f1", "#8b5cf6"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 6,
+            paddingVertical: 10,
+          }}
+        >
+          <Ionicons name="refresh-outline" size={14} color="#fff" />
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>Try Again</Text>
+        </LinearGradient>
+      </TouchableOpacity>
+    </Animated.View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: "#09090f" }}>
@@ -867,6 +1108,8 @@ const ExploreGymsScreen = () => {
           />
         }
       >
+        {error === "network" && <NetworkErrorBanner />}
+
         {/* ── Header  */}
         <Animated.View
           entering={FadeInDown.delay(0).duration(500)}
