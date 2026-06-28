@@ -4,6 +4,7 @@ import {
   TouchableOpacity,
   StatusBar,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useState, useEffect } from "react";
@@ -21,6 +22,8 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
+import api from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -293,17 +296,37 @@ const RoleCard = ({ icon, emoji, title, subtitle, features, selected, onPress, g
 // ─── Choose Role Screen ───────────────────────────────────────────────────────
 const ChooseRoleScreen = ({ navigation, route }) => {
   const { name, email, phone, password } = route?.params || {};
+  const toast = useToast();
   const [selectedRole, setSelectedRole] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    console.log("[ChooseRole] handleContinue called, selectedRole:", selectedRole, "email:", email);
     if (!selectedRole) return;
-    navigation.navigate("OtpVerification", {
-      name,
-      email,
-      phone,
-      password,
-      role: selectedRole,
-    });
+
+    setLoading(true);
+    try {
+      // Send OTP right before navigating so it's fresh
+      console.log("[ChooseRole] Calling POST /users/send-otp with email:", email);
+      const response = await api.post("/users/send-otp", { email });
+      console.log("[ChooseRole] send-otp response:", response.status, response.data);
+      navigation.navigate("OtpVerification", {
+        name,
+        email,
+        phone,
+        password,
+        role: selectedRole,
+      });
+    } catch (error) {
+      console.error("[ChooseRole] OTP send failed:", {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      toast.error(error.response?.data?.message || `Failed to send OTP: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -353,7 +376,7 @@ const ChooseRoleScreen = ({ navigation, route }) => {
         {/* ── Back Button ──────────────────────────────────────────── */}
         <Animated.View entering={FadeInDown.delay(100).springify()}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
             style={{
               width: 36,
               height: 36,
@@ -486,13 +509,15 @@ const ChooseRoleScreen = ({ navigation, route }) => {
               <TouchableOpacity
                 activeOpacity={0.85}
                 onPress={handleContinue}
-                disabled={!selectedRole}
+                disabled={!selectedRole || loading}
               >
                 <View style={{ borderRadius: 14, overflow: "hidden" }}>
                   <LinearGradient
                     colors={
                       !selectedRole
                         ? ["rgba(99,102,241,0.3)", "rgba(139,92,246,0.3)"]
+                        : loading
+                        ? ["#4f46e5", "#6366f1"]
                         : ["#ffffff", "#f0f0f0"]
                     }
                     start={{ x: 0, y: 0 }}
@@ -505,18 +530,24 @@ const ChooseRoleScreen = ({ navigation, route }) => {
                       gap: 8,
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 15,
-                        fontWeight: "700",
-                        color: selectedRole ? "#000" : "rgba(255,255,255,0.3)",
-                        letterSpacing: 0.3,
-                      }}
-                    >
-                      Continue
-                    </Text>
-                    {selectedRole && (
-                      <Ionicons name="arrow-forward" size={16} color="#000" />
+                    {loading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <Text
+                          style={{
+                            fontSize: 15,
+                            fontWeight: "700",
+                            color: selectedRole ? "#000" : "rgba(255,255,255,0.3)",
+                            letterSpacing: 0.3,
+                          }}
+                        >
+                          Continue
+                        </Text>
+                        {selectedRole && (
+                          <Ionicons name="arrow-forward" size={16} color="#000" />
+                        )}
+                      </>
                     )}
                   </LinearGradient>
                 </View>
