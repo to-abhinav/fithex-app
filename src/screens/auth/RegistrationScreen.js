@@ -7,7 +7,6 @@ import {
   StatusBar,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
@@ -27,6 +26,7 @@ import Animated, {
   interpolate,
 } from "react-native-reanimated";
 import api from "../../api/axios";
+import { useToast } from "../../context/ToastContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -110,8 +110,8 @@ const BorderBeam = () => {
   );
 };
 
-// ─── Registration Screen ──────────────────────────────────────────────────────
 const RegisterScreen = ({ navigation }) => {
+  const toast = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -121,7 +121,6 @@ const RegisterScreen = ({ navigation }) => {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // ── Password Strength ─────────────────────────────────────────────────
   const getPasswordStrength = () => {
     if (password.length === 0) return { bars: 0, label: "", color: "#6366f1" };
     if (password.length < 6) return { bars: 1, label: "Weak", color: "#f87171" };
@@ -132,56 +131,33 @@ const RegisterScreen = ({ navigation }) => {
   };
   const strength = getPasswordStrength();
 
-  // ── Register Handler — sends OTP then navigates to verification ──────
   const handleRegister = async () => {
     if (!name || !email || !phone || !password) {
-      Alert.alert("Error", "Please fill in all fields");
+      toast.warning("Please fill in all fields");
       return;
     }
     if (phone.length < 10 || phone.length > 15 || !/^\d+$/.test(phone)) {
-      Alert.alert("Error", "Phone number must be 10-15 digits");
+      toast.warning("Phone number must be 10-15 digits");
       return;
     }
     if (!agreed) {
-      Alert.alert("Error", "Please accept the terms");
+      toast.warning("Please accept the terms");
       return;
     }
 
-    setLoading(true);
-    try {
-      // Step 1: send OTP to email
-      await api.post("/users/send-otp", { email });
-      // Step 2: navigate to OTP screen, passing registration data
-      navigation.navigate("ChooseRole", { name, email, phone, password });
-    } catch (error) {
-      console.error("[Register] OTP send failed:", {
-        status: error.response?.status,
-        data: error.response?.data,
-        url: error.config?.url,
-        baseURL: error.config?.baseURL,
-        message: error.message,
-      });
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || `Failed to send OTP: ${error.message}`
-      );
-    } finally {
-      setLoading(false);
-    }
+    navigation.navigate("ChooseRole", { name, email, phone, password });
   };
 
   return (
     <View className="flex-1 bg-black">
       <StatusBar barStyle="light-content" />
 
-      {/* ── Background Gradient Layer ──────────────────────────────────── */}
       <LinearGradient
         colors={["rgba(99,102,241,0.35)", "rgba(79,70,229,0.25)", "rgba(0,0,0,1)"]}
         locations={[0, 0.4, 1]}
         className="absolute inset-0"
       />
 
-      {/* ── Glow Orbs ─────────────────────────────────────────────────── */}
       <GlowOrb
         size={280}
         color="rgba(99,102,241,0.15)"
@@ -214,10 +190,9 @@ const RegisterScreen = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* ── Back Button ─────────────────────────────────────────── */}
           <Animated.View entering={FadeInDown.delay(100).springify()}>
             <TouchableOpacity
-              onPress={() => navigation.goBack()}
+              onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
               className="w-9 h-9 bg-white/[0.06] border border-white/[0.08] rounded-xl items-center justify-center mb-6"
               activeOpacity={0.7}
             >
@@ -225,7 +200,6 @@ const RegisterScreen = ({ navigation }) => {
             </TouchableOpacity>
           </Animated.View>
 
-          {/* ── Glass Card ──────────────────────────────────────────── */}
           <Animated.View
             entering={FadeInUp.delay(200).duration(800).springify()}
             className="relative"
@@ -241,7 +215,6 @@ const RegisterScreen = ({ navigation }) => {
               className="rounded-3xl p-6 border border-white/[0.05] overflow-hidden"
               style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
             >
-              {/* ── Logo ────────────────────────────────────────────── */}
               <Animated.View
                 entering={FadeInDown.delay(300).springify()}
                 className="items-center mb-6"
@@ -261,7 +234,6 @@ const RegisterScreen = ({ navigation }) => {
                 </Text>
               </Animated.View>
 
-              {/* ── Form Fields ─────────────────────────────────────── */}
               <View className="gap-3.5">
 
                 {/* Full Name */}
@@ -468,7 +440,6 @@ const RegisterScreen = ({ navigation }) => {
                   )}
                 </Animated.View>
 
-                {/* ── Terms Checkbox ────────────────────────────────── */}
                 <Animated.View entering={FadeInDown.delay(750).springify()}>
                   <TouchableOpacity
                     className="flex-row items-start gap-3 pt-1"
@@ -546,7 +517,7 @@ const RegisterScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </Animated.View>
 
-                {/* ── Divider ───────────────────────────────────────── */}
+                {/*  Divider  */}
                 <Animated.View
                   entering={FadeInDown.delay(950).springify()}
                   className="flex-row items-center gap-3 my-1"
@@ -558,7 +529,7 @@ const RegisterScreen = ({ navigation }) => {
                   <View className="flex-1 h-px bg-white/[0.06]" />
                 </Animated.View>
 
-                {/* ── Social Buttons ────────────────────────────────── */}
+                {/* ── Social Buttons  */}
                 <Animated.View
                   entering={FadeInDown.delay(1050).springify()}
                   className="flex-row gap-3"
@@ -587,7 +558,6 @@ const RegisterScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 </Animated.View>
 
-                {/* ── Sign In Link ──────────────────────────────────── */}
                 <Animated.View
                   entering={FadeInDown.delay(1150).springify()}
                   className="items-center mt-2"
