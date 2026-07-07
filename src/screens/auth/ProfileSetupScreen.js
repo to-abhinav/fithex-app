@@ -7,7 +7,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
@@ -16,6 +15,7 @@ import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,7 +33,6 @@ import api from "../../api/axios";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-// ─── Glow Orb --──
 const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   const pulse = useSharedValue(0.3);
 
@@ -74,7 +73,6 @@ const GlowOrb = ({ size, color, top, left, delay = 0 }) => {
   );
 };
 
-// ─── Border Beam ──────────────────────────────────────────────────────────────
 const BorderBeam = () => {
   const progress = useSharedValue(0);
 
@@ -120,7 +118,6 @@ const BorderBeam = () => {
   );
 };
 
-// ─── Section Label ─────────────────────────────────────────────────────────────
 const SectionLabel = ({ label, icon }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, marginTop: 4 }}>
     <Ionicons name={icon} size={13} color="rgba(52,211,153,0.7)" />
@@ -130,7 +127,6 @@ const SectionLabel = ({ label, icon }) => (
   </View>
 );
 
-// ─── Styled Text Input ─────────────────────────────────────────────────────────
 const FieldInput = ({ placeholder, value, onChangeText, keyboardType = "default", suffix }) => {
   const [focused, setFocused] = useState(false);
   return (
@@ -164,7 +160,6 @@ const FieldInput = ({ placeholder, value, onChangeText, keyboardType = "default"
   );
 };
 
-// ─── Chip Selector ─────────────────────────────────────────────────────────────
 const ChipSelector = ({ options, selected, onSelect, activeColor }) => (
   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
     {options.map((opt) => {
@@ -204,7 +199,6 @@ const ChipSelector = ({ options, selected, onSelect, activeColor }) => (
   </View>
 );
 
-// ─── Goal Tile (Premium Full-Width) ────────────────────────────────────────────
 const GoalTile = ({ icon, label, description, value, selected, onPress, gradientColors, index }) => {
   const scale = useSharedValue(1);
   const glowOpacity = useSharedValue(0);
@@ -403,7 +397,6 @@ const FITNESS_GOALS = [
   { value: "increase_flexibility",  label: "Increase Flexibility",  description: "Enhance mobility & prevent injuries",              icon: "body-outline",             gradientColors: ["#06b6d4", "#0891b2"] },
 ];
 
-// ─── Progress Steps ────────────────────────────────────────────────────────────
 const StepDots = ({ step, total }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, justifyContent: "center", marginTop: 20 }}>
     {Array.from({ length: total }).map((_, i) => (
@@ -427,10 +420,11 @@ const StepDots = ({ step, total }) => (
   </View>
 );
 
-//  Profile Setup Screen 
 const ProfileSetupScreen = ({ navigation, route }) => {
   const { signIn } = useAuth();
+  const toast = useToast();
   const token = route?.params?.token;
+  const role = route?.params?.role;
 
   const [step, setStep] = useState(0); // 0 = basics, 1 = goals
   const [loading, setLoading] = useState(false);
@@ -442,7 +436,21 @@ const ProfileSetupScreen = ({ navigation, route }) => {
     }
   }, [token]);
 
-  //  Form state 
+  useEffect(() => {
+    if (role === "owner" && token) {
+      const autoSignIn = async () => {
+        try {
+          await signIn(token);
+          toast.success("Welcome aboard! Let's set up your gym. 🏋️");
+        } catch (err) {
+          toast.error("Something went wrong. Please try logging in.");
+        }
+      };
+      const timeout = setTimeout(autoSignIn, 600);
+      return () => clearTimeout(timeout);
+    }
+  }, [role, token]);
+
   const [age, setAge]               = useState("");
   const [gender, setGender]         = useState(null);
   const [heightCm, setHeightCm]     = useState("");
@@ -452,7 +460,6 @@ const ProfileSetupScreen = ({ navigation, route }) => {
   const [numberOfWorkoutDay, setNumberOfWorkoutDay] = useState(3);
   const [preferredVisitTime, setPreferredVisitTime] = useState(null);
 
-  //  Step 1 validation 
   const step0Valid =
     age.trim() !== "" &&
     parseInt(age, 10) >= 10 &&
@@ -462,12 +469,11 @@ const ProfileSetupScreen = ({ navigation, route }) => {
     weight.trim() !== "" &&
     goalWeight.trim() !== "";
 
-  // ── Step 2 validation ────────────────────────────────────────
   const step1Valid = fitnessGoal !== null && preferredVisitTime !== null;
 
   const handleNext = () => {
     if (step === 0 && !step0Valid) {
-      Alert.alert("Incomplete", "Please fill in all fields correctly before continuing.");
+      toast.warning("Please fill in all fields correctly before continuing.");
       return;
     }
     setStep(1);
@@ -475,7 +481,7 @@ const ProfileSetupScreen = ({ navigation, route }) => {
 
   const handleSubmit = async () => {
     if (!step1Valid) {
-      Alert.alert("Incomplete", "Please select your fitness goal and activity level.");
+      toast.warning("Please select your fitness goal and activity level.");
       return;
     }
 
@@ -492,14 +498,47 @@ const ProfileSetupScreen = ({ navigation, route }) => {
         preferredVisitTime,
       });
       await signIn(token);
-      Alert.alert("All Set! 🎉", "Your fitness profile is ready. Let's get started!");
+      toast.success("Your fitness profile is ready. Let's get started! 🎉");
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || "Failed to save profile.");
+      toast.error(err.response?.data?.message || "Failed to save profile.");
     } finally {
       setLoading(false);
     }
   };
 
+
+  if (role === "owner") {
+    return (
+      <View style={{ flex: 1, backgroundColor: "#000", alignItems: "center", justifyContent: "center" }}>
+        <StatusBar barStyle="light-content" />
+        <LinearGradient
+          colors={["rgba(99,102,241,0.35)", "rgba(79,70,229,0.25)", "rgba(0,0,0,1)"]}
+          locations={[0, 0.4, 1]}
+          style={{ position: "absolute", inset: 0 }}
+        />
+        <GlowOrb size={260} color="rgba(99,102,241,0.15)" top={-50} left={SCREEN_WIDTH / 2 - 130} delay={0} />
+        <GlowOrb size={200} color="rgba(139,92,246,0.10)" top={150} left={-70} delay={1200} />
+        <Animated.View entering={FadeInUp.delay(100).springify()} style={{ alignItems: "center" }}>
+          <LinearGradient
+            colors={["#6366f1", "#8b5cf6"]}
+            style={{
+              width: 72, height: 72, borderRadius: 22,
+              alignItems: "center", justifyContent: "center", marginBottom: 24,
+            }}
+          >
+            <Ionicons name="business-outline" size={32} color="#fff" />
+          </LinearGradient>
+          <Text style={{ fontSize: 24, fontWeight: "700", color: "#fff", letterSpacing: -0.5 }}>
+            Setting Up Your Account
+          </Text>
+          <Text style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", marginTop: 8, textAlign: "center" }}>
+            Preparing your gym owner dashboard…
+          </Text>
+          <ActivityIndicator color="#a5b4fc" size="large" style={{ marginTop: 32 }} />
+        </Animated.View>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: "#000" }}>
@@ -659,7 +698,6 @@ const ProfileSetupScreen = ({ navigation, route }) => {
                 </>
               )}
 
-              {/* ── STEP 1: Goals ──────────────────────────────────────── */}
               {step === 1 && (
                 <>
                   <Animated.View entering={FadeInDown.delay(350).springify()}>
