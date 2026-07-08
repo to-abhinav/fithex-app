@@ -8,6 +8,9 @@ import {
   StatusBar,
   Dimensions,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
   Animated as RNAnimated,
   Pressable,
 } from "react-native";
@@ -25,9 +28,15 @@ import Animated, {
   Easing,
   interpolate,
 } from "react-native-reanimated";
-import RazorpayCheckout from "react-native-razorpay";
 import api from "../../api/axios";
 import { useToast } from "../../context/ToastContext";
+
+let RazorpayCheckout = null;
+try {
+  RazorpayCheckout = require("react-native-razorpay").default;
+} catch (e) {
+  console.warn("[Payment] react-native-razorpay not available, native checkout disabled");
+}
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -44,7 +53,6 @@ const getExpiryDate = (months) => {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
 };
 
-//  Pulsing dot for the "secure" badge 
 const PulsingDot = ({ color }) => {
   const pulse = useSharedValue(1);
   useEffect(() => {
@@ -68,7 +76,6 @@ const PulsingDot = ({ color }) => {
   );
 };
 
-// ─── Detail Row 
 const DetailRow = ({ icon, label, value, color = "rgba(255,255,255,0.4)", valueColor = "#fff" }) => (
   <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.05)" }}>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -81,7 +88,6 @@ const DetailRow = ({ icon, label, value, color = "rgba(255,255,255,0.4)", valueC
   </View>
 );
 
-// ─── Feature Chip 
 const FeatureChip = ({ text, color }) => (
   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 }}>
     <View style={{ width: 24, height: 24, borderRadius: 7, backgroundColor: `${color}18`, borderWidth: 1, borderColor: `${color}28`, alignItems: "center", justifyContent: "center" }}>
@@ -98,6 +104,7 @@ export default function PaymentScreen({ route, navigation }) {
   const [loading, setLoading]         = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
   const [showMethodModal, setShowMethodModal] = useState(false);
+  const [note, setNote]               = useState("");
   const [profile, setProfile]         = useState(null);
   const slideAnim = useRef(new RNAnimated.Value(400)).current;
 
@@ -132,6 +139,15 @@ export default function PaymentScreen({ route, navigation }) {
 
   const handleOnlinePay = async () => {
     closeMethodSheet();
+
+    if (!RazorpayCheckout) {
+      toast.error(
+        "Online payments require a production build. Please use 'Pay in Cash' for now, or rebuild the app with `npx expo run:android`.",
+        "Native SDK Unavailable"
+      );
+      return;
+    }
+
     setLoading(true);
     try {
       const { data } = await api.post("/payment/create-order", {
@@ -154,14 +170,25 @@ export default function PaymentScreen({ route, navigation }) {
       };
       const paymentData = await RazorpayCheckout.open(options);
       await api.post("/payment/verify", {
-        razorpay_order_id:   paymentData.razorpayOrderId,
-        razorpay_payment_id: paymentData.razorpayPaymentId,
-        razorpay_signature:  paymentData.razorpaySignature,
+        razorpay_order_id:   paymentData.razorpay_order_id,
+        razorpay_payment_id: paymentData.razorpay_payment_id,
+        razorpay_signature:  paymentData.razorpay_signature,
+        gymId:               gym._id,
       });
       navigation.replace("PaymentSuccess", { plan, gym });
     } catch (error) {
-      if (error.code === "PAYMENT_CANCELLED") return;
-      toast.error(error?.response?.data?.message || error.message || "Payment failed. Please try again.");
+      if (error?.code === "PAYMENT_CANCELLED" || error?.description === "Payment cancelled") return;
+
+      const errorCode = error?.response?.data?.code;
+      if (errorCode === "RAZORPAY_NOT_CONFIGURED") {
+        toast.error(
+          "This gym hasn't set up online payments yet. Please pay at the counter.",
+          "Online Payments Unavailable"
+        );
+        return;
+      }
+
+      toast.error(error?.response?.data?.message || error?.description || error?.message || "Payment failed. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -175,6 +202,7 @@ export default function PaymentScreen({ route, navigation }) {
         gymId:       gym._id,
         planId:      plan._id,
         paymentMode: "Offline",
+        note:        note.trim() || undefined,
       });
       toast.success("Membership request sent! The gym owner will verify your payment.");
       navigation.navigate("Main");
@@ -208,7 +236,7 @@ export default function PaymentScreen({ route, navigation }) {
           style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingTop: 54, paddingBottom: 12 }}
         >
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
             activeOpacity={0.8}
             style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: "rgba(9,9,15,0.75)", borderWidth: 1, borderColor: "rgba(255,255,255,0.12)", alignItems: "center", justifyContent: "center", marginRight: 14 }}
           >
@@ -360,7 +388,6 @@ export default function PaymentScreen({ route, navigation }) {
 
       </ScrollView>
 
-      {/* ── Sticky Pay Button ── */}
       <Animated.View
         entering={FadeInUp.delay(300).springify()}
         style={{
@@ -370,7 +397,6 @@ export default function PaymentScreen({ route, navigation }) {
           borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.06)",
         }}
       >
-        {/* Amount summary above button */}
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
           <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.35)", fontWeight: "500" }}>Total payable</Text>
           <View style={{ flexDirection: "row", alignItems: "baseline", gap: 2 }}>
@@ -414,24 +440,66 @@ export default function PaymentScreen({ route, navigation }) {
           </LinearGradient>
         </TouchableOpacity>
 
-        {/* ── Payment Method Modal ── */}
         <Modal transparent visible={showMethodModal} animationType="none" onRequestClose={closeMethodSheet}>
-          <Pressable
-            style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}
-            onPress={closeMethodSheet}
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={{ flex: 1 }}
           >
-            <Pressable onPress={() => {}}>
-              <RNAnimated.View style={[
-                { backgroundColor: "#111118", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
-                { transform: [{ translateY: slideAnim }] },
-              ]}>
-                {/* Handle bar */}
+            <Pressable
+              style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "flex-end" }}
+              onPress={closeMethodSheet}
+            >
+              <Pressable onPress={() => {}}>
+                <RNAnimated.View style={[
+                  { backgroundColor: "#111118", borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 40, borderTopWidth: 1, borderColor: "rgba(255,255,255,0.08)" },
+                  { transform: [{ translateY: slideAnim }] },
+                ]}>
                 <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(255,255,255,0.15)", alignSelf: "center", marginBottom: 22 }} />
 
                 <Text style={{ fontSize: 18, fontWeight: "800", color: "#fff", marginBottom: 6, letterSpacing: -0.3 }}>Choose Payment Method</Text>
                 <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", marginBottom: 24, fontWeight: "400" }}>How would you like to pay for this plan?</Text>
 
-                {/* Online Option */}
+                <View
+                  style={{
+                    backgroundColor: "rgba(255,255,255,0.04)",
+                    borderWidth: 1,
+                    borderColor: "rgba(255,255,255,0.1)",
+                    borderRadius: 16,
+                    padding: 14,
+                    marginBottom: 20,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 7, marginBottom: 10 }}>
+                    <View style={{ width: 26, height: 26, borderRadius: 8, backgroundColor: "rgba(99,102,241,0.15)", alignItems: "center", justifyContent: "center" }}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={13} color="#a5b4fc" />
+                    </View>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: "rgba(255,255,255,0.6)", letterSpacing: 0.2 }}>
+                      Message to gym owner
+                    </Text>
+                    <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.25)", fontWeight: "500", marginLeft: "auto" }}>Optional</Text>
+                  </View>
+                  <TextInput
+                    value={note}
+                    onChangeText={setNote}
+                    placeholder="e.g. I'll pay at the desk on Monday morning..."
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    multiline
+                    numberOfLines={3}
+                    maxLength={300}
+                    style={{
+                      color: "#fff",
+                      fontSize: 13,
+                      lineHeight: 20,
+                      minHeight: 64,
+                      textAlignVertical: "top",
+                      fontWeight: "400",
+                    }}
+                  />
+                  <Text style={{ fontSize: 10, color: "rgba(255,255,255,0.2)", textAlign: "right", marginTop: 6 }}>
+                    {note.length}/300
+                  </Text>
+                </View>
+
                 <TouchableOpacity
                   onPress={handleOnlinePay}
                   activeOpacity={0.85}
@@ -470,8 +538,9 @@ export default function PaymentScreen({ route, navigation }) {
                 </TouchableOpacity>
 
               </RNAnimated.View>
+              </Pressable>
             </Pressable>
-          </Pressable>
+          </KeyboardAvoidingView>
         </Modal>
       </Animated.View>
     </View>
