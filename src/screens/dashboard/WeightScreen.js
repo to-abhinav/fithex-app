@@ -108,7 +108,6 @@ const bmiPointerPercent = (bmi) => {
   return ((clamped - 15) / 25) * 100;
 };
 
-// ─── Trend Sparkline Graph ─────────────────────────────────────────────────────
 const WeightGraph = ({ entries }) => {
   if (!entries || entries.length < 2) {
     return (
@@ -351,7 +350,6 @@ const BMIGauge = ({ bmi }) => {
   );
 };
 
-// ─── Weight History Item ───────────────────────────────────────────────────────
 const HistoryItem = ({ entry, prevWeight, onDelete, delay }) => {
   const diff = prevWeight != null ? (entry.weight - prevWeight).toFixed(1) : null;
   const isGain = diff > 0;
@@ -453,12 +451,9 @@ const WeightScreen = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  // stats shape: { currentWeight, bmi, bmiCategory, goalWeight, goalGap, weekDelta, previousWeight }
   const [stats, setStats] = useState(null);
-  // weeklyAvg shape: [{ year, week, weekStart, avgWeight, count }, ...]
   const [weeklyAvg, setWeeklyAvg] = useState([]);
 
-  // ── Fetch all weight data from API ──
   const fetchData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true); else setLoading(true);
@@ -470,8 +465,6 @@ const WeightScreen = () => {
         api.get("/weight/weekly-avg").catch(() => null),
       ]);
 
-      // ── History ──────────────────────────────────────────────────────────
-      // Backend: GET /weight/mine → { count, entries: [...] }
       const rawEntries = historyRes.data?.entries || [];
       const logs = rawEntries.map((e) => {
         const d = new Date(e.date || e.createdAt);
@@ -486,35 +479,25 @@ const WeightScreen = () => {
           rawDate: d,
         };
       });
-      // Sort oldest → newest for graph
       logs.sort((a, b) => a.rawDate - b.rawDate);
       setEntries(logs);
 
-      // ── Latest ───────────────────────────────────────────────────────────
-      // Backend: GET /weight/latest → entry object directly (no wrapper)
       const latestData = latestRes?.data;
       if (latestData) {
         if (latestData.goalWeight) {
           setWeightGoal(latestData.goalWeight);
           setGoalInput(String(latestData.goalWeight));
         }
-        // Back-calculate height from stored bmi + weight: h = sqrt(w / bmi) * 100
         if (latestData.bmi && latestData.weight) {
           const h = Math.sqrt(latestData.weight / latestData.bmi) * 100;
           setHeightCm(Math.round(h));
         }
       }
 
-      // ── Stats ────────────────────────────────────────────────────────────
-      // Backend: GET /weight/stats → { currentWeight, bmi, bmiCategory, goalWeight, goalGap, weekDelta, previousWeight }
       const sData = statsRes?.data;
       if (sData) setStats(sData);
-
-      // ── Weekly Average ───────────────────────────────────────────────────
-      // Backend: GET /weight/weekly-avg → { weeks: [{ year, week, weekStart, avgWeight, count }] }
       const wData = weeklyRes?.data?.weeks;
       if (Array.isArray(wData)) setWeeklyAvg(wData);
-
     } catch (err) {
       console.log("Weight fetch error:", err.message);
     } finally {
@@ -547,14 +530,12 @@ const WeightScreen = () => {
     opacity: modalOpacity.value,
   }));
 
-  // ── Derived values ──────────────────────────────────────────────────────────
   const latestWeight = entries.length > 0 ? entries[entries.length - 1].weight : null;
   const firstWeight  = entries.length > 0 ? entries[0].weight : null;
   const totalChange  = latestWeight != null && firstWeight != null
     ? (latestWeight - firstWeight).toFixed(1)
     : null;
 
-  // Prefer BMI stored on the latest log entry; fall back to local calc
   const latestEntry = entries.length > 0 ? entries[entries.length - 1] : null;
   const apiBmi      = latestEntry?.bmi || calcBMI(latestWeight, heightCm);
 
@@ -565,7 +546,6 @@ const WeightScreen = () => {
         ))
       : 0;
 
-  // Filter entries for the graph
   const filteredEntries = useCallback(() => {
     if (activeFilter === "All" || entries.length === 0) return entries;
     const days = activeFilter === "1W" ? 7 : activeFilter === "1M" ? 30 : 90;
@@ -575,17 +555,13 @@ const WeightScreen = () => {
   const kgLeft     = latestWeight && weightGoal ? Math.max(0, latestWeight - weightGoal).toFixed(1) : "—";
   const isOnTrack  = totalChange !== null && parseFloat(totalChange) < 0;
 
-  // ── Insight values mapped from real backend fields ──────────────────────────
-  // "Best Week" → weekDelta from /weight/stats (change vs 7 days ago)
   const insightBestWeek =
     stats?.weekDelta != null
       ? `${stats.weekDelta > 0 ? "+" : ""}${stats.weekDelta} kg`
       : "—";
 
-  // "Streak" → total number of logs (backend has no streak field)
   const insightStreak = `${entries.length} Logs`;
 
-  // "Avg/Week" → difference between the last two weekly averages
   const insightAvgWeek = (() => {
     if (weeklyAvg.length >= 2) {
       const last = weeklyAvg[weeklyAvg.length - 1];
@@ -593,11 +569,9 @@ const WeightScreen = () => {
       const diff = (last.avgWeight - prev.avgWeight).toFixed(1);
       return `${diff > 0 ? "+" : ""}${diff} kg`;
     }
-    // Fallback: overall change if not enough weeks
     return totalChange ? `${totalChange} kg` : "—";
   })();
 
-  // ── Add / Delete / Save Goal ─────────────────────────────────────────────────
   const addEntry = async () => {
     const w = parseFloat(inputWeight);
     if (isNaN(w) || w < 20 || w > 500) {
@@ -644,7 +618,6 @@ const WeightScreen = () => {
       toast.warning("Enter a realistic weight goal.");
       return;
     }
-    // Re-log current weight with updated goalWeight so the backend persists it
     if (latestWeight) {
       try {
         await api.post("/weight", { weight: latestWeight, goalWeight: g });
@@ -705,7 +678,7 @@ const WeightScreen = () => {
           }}
         >
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
             style={{
               width: 38, height: 38, borderRadius: 19,
               backgroundColor: "rgba(255,255,255,0.06)",
@@ -893,10 +866,10 @@ const WeightScreen = () => {
           </View>
         </Animated.View>
 
-        {/* ── BMI Card ─────────────────────────────────────────────────────── */}
+        {/* ── BMI Card  */}
         <BMIGauge bmi={apiBmi} />
 
-        {/* ── Insights Row ─────────────────────────────────────────────────── */}
+        {/* ── Insights Row    */}
         <Animated.View entering={FadeInDown.delay(450).springify()}>
           <View style={{ flexDirection: "row", gap: 12, marginHorizontal: 20, marginBottom: 14 }}>
             {[
@@ -947,7 +920,7 @@ const WeightScreen = () => {
           </View>
         </Animated.View>
 
-        {/* ── Tips Card ────────────────────────────────────────────────────── */}
+        {/* ── Tips Card  */}
         <Animated.View entering={FadeInDown.delay(500).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <LinearGradient
             colors={["rgba(99,102,241,0.18)", "rgba(139,92,246,0.12)"]}
@@ -978,7 +951,7 @@ const WeightScreen = () => {
           </LinearGradient>
         </Animated.View>
 
-        {/* ── Weight History ────────────────────────────────────────────────── */}
+        {/* ── Weight History  */}
         <Animated.View entering={FadeInDown.delay(560).springify()} style={{ marginHorizontal: 20, marginBottom: 14 }}>
           <View style={{ backgroundColor: "rgba(255,255,255,0.03)", borderWidth: 1, borderColor: "rgba(255,255,255,0.07)", borderRadius: 20, padding: 18 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -994,8 +967,6 @@ const WeightScreen = () => {
             </View>
 
             {[...entries].reverse().map((entry, i) => {
-              // entries is sorted oldest→newest; reversed → newest first.
-              // prevWeight for diff = the entry one slot newer in reversed = entries[length-1-i-1] in original
               const prevIdx = entries.length - 1 - i - 1;
               const prevWeight = prevIdx >= 0 ? entries[prevIdx].weight : null;
               return (
