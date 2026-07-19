@@ -24,7 +24,6 @@ import { useNotifications } from "../../context/NotificationContext";
 
 const { width: SW } = Dimensions.get("window");
 
-// ─── Color tokens (OLED dark + FitHex indigo palette) ──────────────────────
 const C = {
   bg: "#09090f",
   surface: "#111118",
@@ -38,7 +37,6 @@ const C = {
   textMuted: "rgba(255,255,255,0.28)",
 };
 
-// ─── Notification type config (SVG icons, no emojis) ────────────────────────
 const TYPE_MAP = {
   membership_activated:         { color: "#10b981", Icon: IconCheck,      label: "Membership" },
   membership_rejected:          { color: "#ef4444", Icon: IconX,          label: "Membership" },
@@ -149,7 +147,6 @@ function IconArrowLeft({ size = 20, color = "#fff" }) {
   );
 }
 
-// ─── Time ago ────────────────────────────────────────────────────────────────
 const timeAgo = (d) => {
   const s = Math.floor((Date.now() - new Date(d)) / 1000);
   if (s < 60) return "Just now";
@@ -172,10 +169,8 @@ const dayLabel = (d) => {
   return date.toLocaleDateString("en-IN", { day: "numeric", month: "long" });
 };
 
-// ─── Filter tabs ─────────────────────────────────────────────────────────────
 const FILTERS = ["All", "Membership", "Payments", "Check-in", "Streak", "Announce"];
 
-// ─── Empty State ─────────────────────────────────────────────────────────────
 const EmptyState = ({ filter }) => (
   <View style={s.emptyWrap}>
     <View style={s.emptyIconRing}>
@@ -190,7 +185,6 @@ const EmptyState = ({ filter }) => (
   </View>
 );
 
-// ─── Notification Card ───────────────────────────────────────────────────────
 const NotifCard = React.memo(({ item, onPress, index }) => {
   const cfg = getType(item.type);
   const { Icon, color } = cfg;
@@ -218,7 +212,6 @@ const NotifCard = React.memo(({ item, onPress, index }) => {
         activeOpacity={0.75}
         style={[s.card, isUnread && { borderColor: `${color}35`, backgroundColor: `${color}08` }]}
       >
-        {/* Left accent bar for unread */}
         {isUnread && <View style={[s.accentBar, { backgroundColor: color }]} />}
 
         {/* Icon circle */}
@@ -244,7 +237,6 @@ const NotifCard = React.memo(({ item, onPress, index }) => {
   );
 });
 
-// ─── Day separator ───────────────────────────────────────────────────────────
 const DaySep = ({ label }) => (
   <View style={s.daySep}>
     <View style={s.dayLine} />
@@ -253,7 +245,6 @@ const DaySep = ({ label }) => (
   </View>
 );
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 const NotificationsScreen = ({ navigation }) => {
   const insets = useSafeAreaInsets();
   const { refresh: refreshBadge } = useNotifications();
@@ -266,7 +257,6 @@ const NotificationsScreen = ({ navigation }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [activeFilter, setActiveFilter] = useState("All");
 
-  // ── Fetch ──────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async (pageNum = 1, append = false) => {
     try {
       const res = await getNotifications(pageNum, 20);
@@ -321,13 +311,11 @@ const NotificationsScreen = ({ navigation }) => {
     } catch {}
   }, [refreshBadge]);
 
-  // ── Filter + group by day ──────────────────────────────────────────────
   const filtered = notifications.filter((n) => {
     if (activeFilter === "All") return true;
     return getType(n.type).label === activeFilter;
   });
 
-  // Build list items: insert day separators
   const listData = [];
   let lastDay = null;
   filtered.forEach((n, i) => {
@@ -367,7 +355,7 @@ const NotificationsScreen = ({ navigation }) => {
       {/* ── Header ───────────────────────────────────────────────────────── */}
       <View style={s.header}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }}
           style={s.backBtn}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           activeOpacity={0.7}
