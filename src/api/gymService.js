@@ -23,12 +23,10 @@ export const searchGyms = ({ q, city }) =>
 export const getGymById = (id) =>
   api.get(`/gyms/${id}`).then((r) => r.data);
 
-// Public plans for a gym 
 
 export const getGymPlans = (gymId) =>
   api.get(`/plans/gym/${gymId}`).then((r) => r.data);
 
-// Owner-side gym management 
 
 export const getMyGym = () =>
   api.get("/gyms/owner/mine").then((r) => r.data);
@@ -61,3 +59,22 @@ export const toggleGymStatus = (id) =>
 
 export const deleteGym = (id) =>
   api.delete(`/gyms/${id}`).then((r) => r.data);
+
+export const saveRazorpayCredentials = (gymId, razorpayKeyId, razorpayKeySecret) =>
+  api.post(`/gyms/${gymId}/razorpay`, { razorpayKeyId, razorpayKeySecret })
+    .then((r) => r.data);
+
+export const getRazorpayStatus = (gymId) =>
+  api.get(`/gyms/${gymId}/razorpay-status`).then((r) => r.data);
+
+export const createLinkedAccount = ({ gst } = {}) =>
+  api.post("/gyms/create-linked-account", { gst }).then((r) => r.data);
+
+export const createStakeholder = ({ pan, ownerName }) =>
+  api.post("/gyms/create-stakeholder", { pan, ownerName }).then((r) => r.data);
+
+export const requestProductConfig = () =>
+  api.post("/gyms/request-product-config").then((r) => r.data);
+
+export const updateProductConfig = ({ ifsc_code, account_number, beneficiary_name }) =>
+  api.patch("/gyms/update-product-config", { ifsc_code, account_number, beneficiary_name }).then((r) => r.data);
