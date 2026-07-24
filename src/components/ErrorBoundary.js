@@ -1,6 +1,5 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import * as Updates from "expo-updates";
 
 
 class ErrorBoundary extends React.Component {
@@ -14,12 +13,8 @@ class ErrorBoundary extends React.Component {
     console.error("[ErrorBoundary]", error, errorInfo);
   }
 
-  handleRestart = async () => {
-    try {
-      await Updates.reloadAsync();
-    } catch {
-      this.setState({ hasError: false, error: null });
-    }
+  handleRestart = () => {
+    this.setState({ hasError: false, error: null });
   };
 
   render() {
