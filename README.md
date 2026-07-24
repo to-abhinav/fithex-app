@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./assets/icon.png" alt="FitHex Logo" width="120" height="120" style="border-radius: 24px;" />
+  <img src="./assets/logo.png" alt="FitHex Logo" width="120" height="120" style="border-radius: 24px;" />
 </p>
 
 <h1 align="center">FitHex</h1>
