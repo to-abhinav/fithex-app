@@ -31,7 +31,6 @@ export const NotificationProvider = ({ children, navigationRef }) => {
     } catch {}
   }, [isSignedIn]);
 
-  // Register push token
   useEffect(() => {
     if (!isSignedIn) return;
 
@@ -83,7 +82,7 @@ export const NotificationProvider = ({ children, navigationRef }) => {
 
     return () => {
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, [navigationRef]);

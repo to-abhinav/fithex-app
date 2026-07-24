@@ -61,6 +61,20 @@ export const AuthProvider = ({ children }) => {
     setUserRole(null);
   }, []);
 
+  // Auto sign-out on 401 (expired / revoked token)
+  useEffect(() => {
+    const id = api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        if (error.response?.status === 401) {
+          await signOut();
+        }
+        return Promise.reject(error);
+      }
+    );
+    return () => api.interceptors.response.eject(id);
+  }, [signOut]);
+
   const value = {
     isLoading,
     userToken,
